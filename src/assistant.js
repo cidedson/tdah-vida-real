@@ -66,7 +66,7 @@ export const TOOLS = [
       properties: {
         itens: {
           type: 'array', maxItems: 3, description: 'Até 3 prioridades, na ordem.',
-          items: { type: 'object', properties: { prioridade: { type: 'string' }, primeiro_passo: { type: 'string', description: 'Primeiro passo físico e concreto, com verbo.' }, periodo: { type: 'string', enum: ['manha', 'tarde', 'noite', ''], description: 'Quando no dia ela cabe melhor, olhando a agenda. Vazio se tanto faz.' } }, required: ['prioridade', 'primeiro_passo'] },
+          items: { type: 'object', properties: { prioridade: { type: 'string' }, primeiro_passo: { type: 'string', description: 'Primeiro passo físico e concreto, com verbo.' }, periodo: { type: 'string', enum: ['manha', 'tarde', 'noite', 'qualquer'], description: 'Quando no dia ela cabe melhor, olhando a agenda. "qualquer" se tanto faz.' } }, required: ['prioridade', 'primeiro_passo'] },
         },
       },
       required: ['itens'],
@@ -279,13 +279,13 @@ const GTYPE = { object: 'OBJECT', string: 'STRING', array: 'ARRAY', integer: 'IN
 function toGeminiSchema(s) {
   const out = { type: GTYPE[s.type] || 'STRING' };
   if (s.description) out.description = s.description;
-  if (s.enum) out.enum = s.enum;
+  if (s.enum) out.enum = s.enum.filter(v => v !== '' && v != null); // o Gemini recusa opção vazia
   if (s.properties) out.properties = Object.fromEntries(Object.entries(s.properties).map(([k, v]) => [k, toGeminiSchema(v)]));
   if (s.required) out.required = s.required;
   if (s.items) out.items = toGeminiSchema(s.items);
   return out;
 }
-const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map(t => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema) })) }];
+export const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map(t => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema) })) }];
 
 async function callGemini({ apiKey, model, systemText, contents, tools = GEMINI_TOOLS, extra = {} }) {
   const id = model.replace(/^models\//, '');

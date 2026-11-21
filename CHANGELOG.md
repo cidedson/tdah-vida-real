@@ -12,6 +12,7 @@ Cada push na `main` gera um APK em [Releases](../../releases). O número final d
 - **Mais do dia:** Descarrego, Corpo em dia, Feito hoje, Uma coisa boa, Próximos lembretes e Páginas anteriores, cada um numa linha que abre quando você toca. **Descarregar** abre direto o descarrego.
 - Remédios e agenda completos ficam a um toque, nos chips do "Meu dia". O que você já tinha escrito nos blocos aparece como anotação no período.
 - O assistente agora coloca cada prioridade no período certo do dia.
+- Correção: com o Gemini, o assistente respondia "cannot be empty" e não funcionava. Era uma opção vazia na lista de períodos, que o Gemini não aceita.
 
 ## 1.8 — 21 de novembro de 2026
 
