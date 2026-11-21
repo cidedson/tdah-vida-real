@@ -24,7 +24,7 @@ android {
             if (releaseKey) {
                 storeFile file(releaseKey)
                 storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
+                keyAlias System.getenv("KEY_ALIAS") ?: "tdah"
                 keyPassword System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
             }
         }

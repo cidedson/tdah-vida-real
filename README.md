@@ -105,7 +105,7 @@ O APK é gerado pelo GitHub Actions (`.github/workflows/android.yml`) a cada pus
 | --- | --- |
 | `KEYSTORE_BASE64` | O arquivo `.keystore` em base64 (`base64 -w0 minha.keystore`) |
 | `KEYSTORE_PASSWORD` | Senha do keystore |
-| `KEY_ALIAS` | Alias da chave |
+| `KEY_ALIAS` | Alias da chave (se faltar, usa `tdah`) |
 | `KEY_PASSWORD` | Senha da chave (se for igual à do keystore, pode omitir) |
 
 Num fork, crie a sua própria chave com `keytool -genkeypair -v -keystore minha.keystore -alias minha -keyalg RSA -keysize 2048 -validity 10000`, cadastre os secrets e guarde o arquivo num lugar seguro: sem ele, não dá para atualizar o app por cima.
