@@ -1,0 +1,11 @@
+node_modules/
+www/app.js
+*.apk
+.DS_Store
+# Nunca coloque aqui arquivos de perfil ou backup com seus dados
+perfil-*.json
+tdah-backup-*.json
+# A chave de assinatura nunca entra no repositório (vai nos secrets do GitHub)
+*.keystore
+*.jks
+*.p12

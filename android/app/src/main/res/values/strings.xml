@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TDAH Vida Real</string>
+    <string name="title_activity_main">TDAH na Vida Real</string>
+    <string name="package_name">com.cidedson.tdahvidareal</string>
+    <string name="custom_url_scheme">com.cidedson.tdahvidareal</string>
+</resources>

@@ -1,0 +1,97 @@
+name: Gerar APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Versão do app: troque APP_VERSION quando houver mudança grande e descreva a mudança no CHANGELOG.md.
+# O número final da versão é o número do build + 20 (continua a contagem do repositório antigo,
+# para o Android aceitar a atualização por cima).
+env:
+  APP_VERSION: "1.7"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Aceitar licenças do Android SDK (já instalado no runner)
+        run: |
+          SDKM=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)
+          echo "ANDROID_HOME=$ANDROID_HOME  sdkmanager=$SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Montar a interface
+        run: npm run build
+
+      - name: Sincronizar com o Android
+        run: npx cap sync android
+
+      - name: Número do build
+        run: echo "BUILD=$((GITHUB_RUN_NUMBER + 20))" >> "$GITHUB_ENV"
+
+      - name: Preparar a assinatura
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Faltam os secrets KEYSTORE_BASE64 e KEYSTORE_PASSWORD (ver README, seção Gerar o APK)."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Compilar o APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ env.BUILD }}
+          VERSION_NAME: ${{ env.APP_VERSION }}.${{ env.BUILD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../tdah-vida-real.apk
+
+      - name: Guardar o APK no build
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdah-vida-real-apk
+          path: tdah-vida-real.apk
+
+      - name: Notas da versão (do CHANGELOG.md)
+        run: |
+          awk -v v="## ${APP_VERSION} " 'index($0, v) == 1 { f = 1; next } /^## / { if (f) exit } f' CHANGELOG.md > release_notes.md
+          [ -s release_notes.md ] || echo "Versão ${APP_VERSION}." > release_notes.md
+          printf '\nBaixe o `tdah-vida-real.apk` abaixo e instale por cima da versão anterior: seus dados continuam no celular.\n' >> release_notes.md
+          cat release_notes.md
+
+      - name: Publicar em Releases (link direto para baixar no celular)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}.${{ env.BUILD }}
+          name: TDAH Vida Real ${{ env.APP_VERSION }}.${{ env.BUILD }}
+          files: tdah-vida-real.apk
+          body_path: release_notes.md
+          make_latest: true

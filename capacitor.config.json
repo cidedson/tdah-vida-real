@@ -1,0 +1,8 @@
+{
+  "appId": "com.cidedson.tdahvidareal",
+  "appName": "TDAH na Vida Real",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
