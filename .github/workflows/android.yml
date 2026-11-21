@@ -3,6 +3,11 @@ name: Gerar APK
 on:
   push:
     branches: [main]
+    # Mudança só em texto ou imagem não gera APK novo.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
 # Versão do app: troque APP_VERSION quando houver mudança grande e descreva a mudança no CHANGELOG.md.

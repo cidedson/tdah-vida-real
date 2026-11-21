@@ -1,0 +1,19 @@
+name: Ideia ou melhoria
+description: Sugira algo que deixaria o app mais útil no dia a dia
+labels: ["ideia"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual situação do dia a dia trava hoje?
+      placeholder: "Ex.: esqueço de levar o carregador quando saio para o trabalho."
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Como o app poderia ajudar?
+  - type: textarea
+    id: outros
+    attributes:
+      label: Já viu isso em outro app? (opcional)

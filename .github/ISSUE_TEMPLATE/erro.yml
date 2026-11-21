@@ -1,0 +1,41 @@
+name: Algo não funcionou
+description: Conte o que aconteceu para a gente corrigir
+labels: ["erro"]
+body:
+  - type: markdown
+    attributes:
+      value: "Obrigado por avisar. Não cole aqui nomes de remédios, chaves de API nem outros dados pessoais."
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu?
+      placeholder: "Ex.: toquei em Tomei na notificação e o remédio não ficou marcado."
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava?
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como repetir o erro
+      placeholder: "1. Abra...\n2. Toque em...\n3. Veja que..."
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do app
+      description: "Menu ☰ › Ajustes › Sobre o app"
+      placeholder: "1.7.22"
+    validations:
+      required: true
+  - type: input
+    id: celular
+    attributes:
+      label: Celular e versão do Android
+      placeholder: "Ex.: Galaxy S23, Android 14"
+  - type: textarea
+    id: prints
+    attributes:
+      label: Prints (opcional)
+      description: "Arraste as imagens para cá. Confira se não aparece nada pessoal."

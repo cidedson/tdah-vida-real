@@ -1,17 +1,41 @@
+<p align="center"><img src="docs/capa.png" alt="TDAH na Vida Real: telas de Prioridades, Hoje e captura mágica" width="100%"></p>
+
+<p align="center">
+  <a href="../../releases/latest"><img alt="Baixar o APK" src="https://img.shields.io/github/v/release/cidedson/tdah-vida-real?label=baixar%20APK&color=1f5f5b&style=for-the-badge"></a>
+  <img alt="Android 7 ou mais novo" src="https://img.shields.io/badge/Android-7%2B-2f7d6d?style=for-the-badge&logo=android&logoColor=white">
+  <img alt="Em português do Brasil" src="https://img.shields.io/badge/idioma-PT--BR-2f7d6d?style=for-the-badge">
+  <img alt="Sem conta e sem servidor" src="https://img.shields.io/badge/dados-no%20celular-2f7d6d?style=for-the-badge">
+</p>
+
 # TDAH na Vida Real
 
-App Android para tirar a rotina da cabeça. Ele lembra dos remédios e da água, ajuda a decidir o que fazer primeiro, separa o "o que fazer" do "fazer" e tem um assistente de IA opcional que fatia tarefas grandes em passos de minutos.
+App Android para tirar a rotina da cabeça. Ele lembra dos remédios e da água, ajuda a decidir o que fazer primeiro, transforma tarefa grande em passos de minutos e segura o foco por 25 minutos. O assistente de IA é opcional.
 
 Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Google Drive de quem usa.
 
-<p>
-<img src="docs/telas/hoje.png" width="200" alt="Tela Hoje: resumo do dia, aviso para levar o remédio, ações rápidas e as 3 do dia">
-<img src="docs/telas/matriz.png" width="200" alt="Prioridades: matriz com quatro quadrantes e a sugestão das 3 do dia">
-<img src="docs/telas/tarefa-faz.png" width="200" alt="Tarefa na fase Faz, com os passos e o botão Começar no foco">
-<img src="docs/telas/foco.png" width="200" alt="Bloco de foco escuro com timer de 25 minutos e o passo atual">
-</p>
+**[Baixar a última versão](../../releases/latest)** · [Novidades](CHANGELOG.md) · [Instalar](#instalar-no-celular) · [Privacidade](#privacidade-e-dados) · [Como funciona](#como-funciona-por-dentro)
 
 > O app ajuda a organizar a rotina, mas não substitui avaliação nem acompanhamento médico ou psicológico. Em crise, ligue 188 (CVV) ou 192 (SAMU).
+
+## Telas
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/telas/hoje.png" width="230" alt="Tela Hoje com o resumo do dia, aviso para levar o remédio, ações rápidas e o humor"><br><sub><b>Hoje</b>: o dia num olhar</sub></td>
+    <td align="center" width="33%"><img src="docs/telas/captura.png" width="230" alt="Captura mágica lendo dentista sexta 15h no centro"><br><sub><b>Captura mágica</b>: escreve do seu jeito</sub></td>
+    <td align="center" width="33%"><img src="docs/telas/matriz.png" width="230" alt="Matriz de prioridades com filtro por categoria"><br><sub><b>Prioridades</b>: matriz com categorias</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/telas/nova-tarefa-ia.png" width="230" alt="Tarefa grande fatiada pela IA em 6 passos"><br><sub><b>IA fatia</b> a tarefa grande</sub></td>
+    <td align="center"><img src="docs/telas/quando-onde.png" width="230" alt="Card Quando e onde com horário, aviso, local e repetição semanal"><br><sub><b>Quando e onde</b>, com repetição</sub></td>
+    <td align="center"><img src="docs/telas/foco.png" width="230" alt="Bloco de foco escuro com timer de 25 minutos e o passo atual"><br><sub><b>Foco</b> de 25 min no passo atual</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/telas/semana.png" width="230" alt="Resumo da semana com tarefas concluídas, 3 do dia, remédios e humor"><br><sub><b>Resumo da semana</b></sub></td>
+    <td align="center"><img src="docs/telas/remedios.png" width="230" alt="Remédios e água com o próximo horário e os botões Tomei e Lembrar em 15 min"><br><sub><b>Remédios e água</b> com aviso</sub></td>
+    <td align="center"><img src="docs/telas/hoje-escuro.png" width="230" alt="Tela Hoje no tema escuro"><br><sub><b>Tema escuro</b> ou automático</sub></td>
+  </tr>
+</table>
 
 ## O que ele faz
 
@@ -88,9 +112,13 @@ Por padrão, o assistente não recebe os nomes dos remédios nem os itens do "Co
 
 | Arquivo | O que tem |
 | --- | --- |
-| `src/app.js` | Telas, navegação, foco, prioridades, notificação fixa |
+| `src/app.js` | Telas, navegação, foco, prioridades, repetição, resumo da semana, notificação fixa |
+| `src/capture.js` | Captura mágica: lê data, hora, local e repetição de um texto em português |
 | `src/assistant.js` | Assistente (Claude e Gemini), ferramentas e o fatiador de tarefas |
-| `src/native.js` | Agenda, notificações, voz, backup no Drive |
+| `src/mood.js` | Humor em 1 toque e as frases do dia |
+| `src/native.js` | Agenda, notificações, voz, backup no Drive, compartilhar |
+| `src/sharelink.js` | Link de tarefa compartilhada (conteúdo comprimido dentro do link) |
+| `src/events.js` | Ajuste dos eventos de dia inteiro da agenda |
 | `src/db.js` | Banco IndexedDB, exportar e importar |
 | `src/content.js` | As 100 estratégias e as 7 rotinas |
 
@@ -124,6 +152,12 @@ No navegador, agenda, notificações e backup no Drive ficam desligados; o resto
 ## Versões
 
 O que mudou em cada versão está em [CHANGELOG.md](CHANGELOG.md).
+
+## Contribuir
+
+- Achou um erro ou tem uma ideia? Abra uma [issue](../../issues/new/choose): tem modelo para erro e para ideia.
+- Vai mexer no código? Veja [CONTRIBUTING.md](CONTRIBUTING.md).
+- Falha de segurança ou de privacidade: siga [SECURITY.md](SECURITY.md), sem abrir issue pública.
 
 ## Créditos
 
