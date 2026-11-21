@@ -55,6 +55,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | **Assistente de IA** | Opcional. Fala ou texto, com Gemini (Google) ou Claude (Anthropic), no tom que você escolher: direto, encorajador ou bem-humorado. Vê a agenda, o dia e o humor, cria e fatia tarefas, marca passos, organiza o descarrego, cria lembretes e horários, marca compromissos da casa, fecha o dia e faz o resumo da semana. |
 | **Agenda da casa** | Um calendário do Google compartilhado: o que uma pessoa marca aparece no celular da outra. |
 | **Compartilhar tarefa** | Manda uma tarefa pelo WhatsApp como link. Quem tem o app toca e a tarefa abre direto nele, com passos e prazo, pronta para entrar na matriz. |
+| **Aviso de versão nova** | Uma vez por dia o app confere se saiu versão nova. Se saiu, mostra as novidades na tela Hoje com o botão **Baixar e instalar**. |
 | **Resumo da semana** | Domingo às 19h: tarefas concluídas, as 3 do dia, remédios marcados, humor e o dia que mais rendeu. |
 | **Mais** | Revisão da semana, ideias, hábitos sem data, lembretes, tema claro, escuro ou automático e configuração guiada na primeira abertura. |
 
@@ -65,7 +66,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 3. Se o Play Protect avisar que o app é desconhecido, toque em **Mais detalhes › Instalar mesmo assim**. O aviso aparece porque o app não está na Play Store.
 4. Abra o app e responda a configuração guiada (uns 5 minutos).
 
-Versões novas instalam **por cima** da anterior, sem perder dados. Não desinstale antes de atualizar: desinstalar apaga o que não estiver no backup.
+O app avisa quando sai versão nova (a partir da 1.8). Versões novas instalam **por cima** da anterior, sem perder dados. Não desinstale antes de atualizar: desinstalar apaga o que não estiver no backup.
 
 Requer Android 7 ou mais novo. Não há versão para iPhone.
 
@@ -98,6 +99,7 @@ Por padrão, o assistente não recebe os nomes dos remédios nem os itens do "Co
 - **Backup no seu Google Drive:** o app grava num arquivo que você escolhe, pelo seletor de arquivos do Android. Nenhum servidor nosso, nenhum login extra.
 - **O que sai do celular:** o backup no seu Drive, o que você manda ao assistente de IA e os compromissos da Agenda da casa, que ficam no seu Google Agenda.
 - **Tarefa compartilhada:** o conteúdo vai dentro do link, depois do `#`, parte que o navegador não envia a nenhum servidor. O site `cidedson.github.io` só faz a ponte para abrir o app.
+- **Aviso de versão nova:** uma vez por dia o app pergunta ao GitHub qual é a última versão. Nenhum dado seu vai junto, e dá para desligar em Ajustes › Sobre o app.
 - **O que nunca sai:** a chave de API.
 - Também dá para exportar e importar um backup em JSON por Ajustes.
 
@@ -118,6 +120,7 @@ Por padrão, o assistente não recebe os nomes dos remédios nem os itens do "Co
 | `src/mood.js` | Humor em 1 toque e as frases do dia |
 | `src/native.js` | Agenda, notificações, voz, backup no Drive, compartilhar |
 | `src/sharelink.js` | Link de tarefa compartilhada (conteúdo comprimido dentro do link) |
+| `src/update.js` | Aviso de versão nova (consulta a última versão no GitHub) |
 | `src/events.js` | Ajuste dos eventos de dia inteiro da agenda |
 | `src/db.js` | Banco IndexedDB, exportar e importar |
 | `src/content.js` | As 100 estratégias e as 7 rotinas |

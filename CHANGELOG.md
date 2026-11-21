@@ -2,6 +2,14 @@
 
 Cada push na `main` gera um APK em [Releases](../../releases). O número final da versão é o número do build.
 
+## 1.8 — 21 de novembro de 2026
+
+- **Aviso de versão nova:** uma vez por dia, ao abrir o app, ele confere no GitHub se saiu versão nova. Se saiu, mostra um card na tela Hoje com as novidades e o botão **Baixar e instalar**, e manda uma notificação uma vez.
+- **Depois** esconde o card por 3 dias.
+- Em Ajustes › Sobre o app: **Procurar agora**, a data da última procura e a chave para ligar ou desligar o aviso.
+- Só a consulta ao GitHub sai do celular. Nenhum dado seu vai junto.
+- O código agora fica num repositório público, sem a chave de assinatura. As atualizações continuam instalando por cima.
+
 ## 1.7 — 21 de novembro de 2026
 
 - **Captura mágica:** escreva ou fale do seu jeito, como "dentista sexta 15h no centro" ou "pagar a luz todo dia 10". O app separa data, hora, local, repetição e categoria, mostra antes de salvar e avisa no horário (com 30 min de antecedência quando tem local). Funciona sem IA; com IA, a leitura fica mais esperta e a tarefa ainda chega fatiada.

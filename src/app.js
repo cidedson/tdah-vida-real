@@ -5,8 +5,9 @@ import { keyStore, PROVIDERS, modelOptions, listGeminiModels, buildSystem, runAg
 import { shareLink, shareCodeFromUrl, decodeShare } from './sharelink.js';
 import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, keyToDate, dateKey } from './capture.js';
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
+import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '1.7 (navegador)';
+const VERSION = '1.8 (navegador)';
 
 // ---------------- Estado ----------------
 const S = {
@@ -19,6 +20,7 @@ const S = {
   appVersion: null, driveBusy: false,
   drawer: false, prevTab: 'hoje', focus: null, parkOpen: false, medEdit: false,
   catFilter: null, weekPages: {}, whenOpen: {},
+  currentVer: null, update: null, updateBusy: false,
 };
 
 // ---------------- Utilidades ----------------
@@ -93,6 +95,7 @@ async function loadAll() {
   await loadPage(todayKey());
   await loadWeekPages();
   await tidyTasks();
+  S.update = cachedUpdate();
 }
 
 // Últimos 7 dias (hoje incluso), para o humor da semana e o resumo.
@@ -582,6 +585,33 @@ function welcomeCard() {
   <button class="ghost mt" onclick="A.startOnboarding()">Configuração guiada</button></div>`;
 }
 
+// ---------------- Aviso de versão nova ----------------
+const hasUpdate = () => !!(S.currentVer && S.update && isNewer(S.update.version, S.currentVer));
+async function maybeCheckUpdate(force = false) {
+  if (!force && S.settings.updateCheck === false) return;
+  if (!S.currentVer) { if (force) toast('A procura por versão nova funciona no app Android.'); return; }
+  if (force) { S.updateBusy = true; render(); }
+  try {
+    const info = await checkUpdate({ force });
+    if (info) S.update = info;
+    if (hasUpdate() && S.settings.updateNotified !== S.update.version) {
+      S.settings.updateNotified = S.update.version; await db.put('settings', S.settings);
+      await N.scheduleOnce('versao-nova', 'Versão nova do app', `A ${S.update.version} está disponível. Toque para ver as novidades.`, new Date(Date.now() + 2000));
+    }
+    if (force) toast(hasUpdate() ? `Versão ${S.update.version} disponível` : 'Você já está na última versão');
+  } catch (e) { if (force) toast('Não consegui ver agora: ' + (e.message || e)); }
+  S.updateBusy = false; render();
+}
+function updateCard() {
+  if (!hasUpdate() || S.settings.updateCheck === false) return '';
+  const u = S.update, snooze = (S.settings.updateSnooze || {})[u.version];
+  if (snooze && Date.now() < snooze) return '';
+  return `<div class="hero upd"><p class="eyebrow">Versão nova</p><p class="bigname">TDAH na Vida Real ${h(u.version)}</p>
+    ${u.notes && u.notes.length ? `<ul class="updnotes">${u.notes.map(n => `<li>${h(n)}</li>`).join('')}</ul>` : ''}
+    <p class="sub2" style="margin-top:8px">Instale por cima: seus dados continuam no celular.</p>
+    <div class="row" style="margin-top:12px;gap:8px"><a class="abtn light" href="${h(u.url)}" target="_blank" rel="noopener">Baixar e instalar</a><button class="outline" onclick="A.updateLater()">Depois</button></div></div>`;
+}
+
 function backupNudge() {
   if (S.settings.driveUri && S.settings.driveError) {
     return `<div class="card row"><div class="grow small">O backup no Google Drive falhou.</div><button class="mini" onclick="A.tab('ajustes')">Resolver</button></div>`;
@@ -818,6 +848,7 @@ function scrHoje() {
   if (!S.settings.name && !S.viewingPast) b += welcomeCard();
   if (S.viewingPast) b += `<div class="card row"><div class="grow small">Você está vendo uma página anterior.</div><button class="mini" onclick="A.openPage('${todayKey()}')">Voltar para hoje</button></div>`;
   b += backupNudge();
+  if (!S.viewingPast) b += updateCard();
   b += heroCard();
   if (!S.viewingPast) b += carryAlerts() + quickActions();
   if (!S.viewingPast && showWeekOnHoje()) b += weekSummaryCard(true);
@@ -1745,10 +1776,19 @@ function moodSettingsCard() {
 const TONES = [['direto', 'Direto'], ['encorajador', 'Encorajador'], ['humor', 'Bem-humorado']];
 
 const REPO_URL = 'https://github.com/cidedson/tdah-vida-real';
+function updateLine() {
+  const on = S.settings.updateCheck !== false;
+  const lc = lastChecked();
+  const st = hasUpdate() ? `<b style="color:var(--accent-ink)">Versão ${h(S.update.version)} disponível.</b> <a href="${h(S.update.url)}" target="_blank" rel="noopener" style="font-weight:700">Baixar</a>`
+    : S.currentVer && S.update ? 'Você está na última versão.' : '';
+  return `<div class="setrow" style="border-top:1px solid var(--line);margin-bottom:8px"><div class="lb">Avisar de versão nova<div class="small" style="font-weight:500">Confere no GitHub uma vez por dia</div></div>${sw(on, 'Avisar de versão nova', 'A.toggleUpdateCheck()')}</div>
+    <div class="row" style="margin-bottom:10px"><p class="small grow" style="margin:0">${st || 'Ainda não procurou.'}${lc ? ` Última procura: ${sinceLabel(lc)}.` : ''}</p><button class="ghost mini" onclick="A.checkUpdateNow()" ${S.updateBusy ? 'disabled' : ''}>${S.updateBusy ? 'Procurando…' : 'Procurar agora'}</button></div>`;
+}
 function aboutCard() {
   const ext = (url, label) => `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">${label} ↗</a>`;
   return `<div class="card"><h2>Sobre o app</h2>
     <p style="margin:0 0 8px"><b>TDAH na Vida Real</b> · versão ${h(S.appVersion || VERSION)}</p>
+    ${updateLine()}
     <p class="hint">Guia, planner, rotinas e assistente para quem tem TDAH. Sem conta e sem servidor: tudo fica neste celular, e o backup vai para o seu Google Drive.</p>
     <p class="hint">O app ajuda a organizar a rotina, mas não substitui avaliação nem acompanhamento médico ou psicológico. Em crise, ligue 188 (CVV) ou 192 (SAMU).</p>
     <p class="small" style="margin:0 0 6px">Código, novidades e versões: ${ext(REPO_URL, 'GitHub')} · ${ext(REPO_URL + '/releases', 'baixar a última versão')}</p>
@@ -2105,6 +2145,9 @@ const A = {
     S.moodJust = true; render(); setTimeout(() => { S.moodJust = false; }, 1200);
   },
   async moodReset() { S.page.mood = null; await savePage(); render(); },
+  async updateLater() { const u = S.update; if (!u) return; S.settings.updateSnooze = { ...(S.settings.updateSnooze || {}), [u.version]: Date.now() + 3 * DAY }; await db.put('settings', S.settings); render(); toast('Aviso de novo em 3 dias. A versão também fica em Ajustes › Sobre o app.'); },
+  checkUpdateNow() { return maybeCheckUpdate(true); },
+  async toggleUpdateCheck() { S.settings.updateCheck = S.settings.updateCheck === false; await db.put('settings', S.settings); render(); if (S.settings.updateCheck !== false) maybeCheckUpdate(); },
   async setTone(k) { S.settings.aiTone = k; await db.put('settings', S.settings); render(); toast(`Tom: ${TONES.find(x => x[0] === k)[1]}`); },
   async setWeekOpt() { S.settings.weekSummary = S.settings.weekSummary === false; await db.put('settings', S.settings); await scheduleWeekNotif(); render(); },
   async addCat() {
@@ -2617,7 +2660,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { S, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
@@ -2634,7 +2677,7 @@ async function start() {
     N.launchUrl().then(handleIncomingUri);
     N.initFocusChannels();
     const info = await N.appInfo();
-    if (info) S.appVersion = `${info.version} (build ${info.build})`;
+    if (info) { S.appVersion = `${info.version} (build ${info.build})`; S.currentVer = info.version; }
     maybeAutoBackup(24 * 3600000);
     await N.initDoseNotifications(onDoseAction);
     S.exact = await N.exactAlarmStatus();
@@ -2642,6 +2685,7 @@ async function start() {
     if (S.calPerm === 'granted') await loadEvents();
     await syncNotifications();
     render();
+    maybeCheckUpdate();
   }
   // Botão voltar: fecha telas internas antes de sair
   N.onBackButton(() => {
@@ -2662,7 +2706,7 @@ async function start() {
     N.pinnedVisible().then(v => { if (!v) updatePinned(true); });
     if (!S.viewingPast && S.page.id !== todayKey()) await loadPage(todayKey());
     if (S.calPerm === 'granted') await loadEvents();
-    if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); }
+    if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); later('update', maybeCheckUpdate, 3000); }
     if (S.focus && S.focus.phase === 'run') focusTick();
     const active = document.activeElement;
     if (!active || !['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) render();
