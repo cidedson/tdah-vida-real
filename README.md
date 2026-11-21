@@ -21,7 +21,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/telas/hoje.png" width="230" alt="Tela Hoje com o resumo do dia, aviso para levar o remédio, ações rápidas e o humor"><br><sub><b>Hoje</b>: o dia num olhar</sub></td>
+    <td align="center" width="33%"><img src="docs/telas/hoje.png" width="230" alt="Tela Hoje com o card Agora, ações rápidas, humor e o Meu dia por Manhã, Tarde e Noite"><br><sub><b>Hoje</b>: o dia num olhar</sub></td>
     <td align="center" width="33%"><img src="docs/telas/captura.png" width="230" alt="Captura mágica lendo dentista sexta 15h no centro"><br><sub><b>Captura mágica</b>: escreve do seu jeito</sub></td>
     <td align="center" width="33%"><img src="docs/telas/matriz.png" width="230" alt="Matriz de prioridades com filtro por categoria"><br><sub><b>Prioridades</b>: matriz com categorias</sub></td>
   </tr>
@@ -41,7 +41,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 
 | Área | O que tem |
 | --- | --- |
-| **Hoje** | Resumo do dia com o próximo passo, ações rápidas (descarregar, foco de 25 min, dia ruim, anotar), as 3 do dia, agenda do celular, descarrego mental por voz e um modo "dia ruim" com só 5 caixinhas. |
+| **Hoje** | Uma tela só com o que importa agora: o card **Agora** (o remédio da vez ou a prioridade, com o botão certo), ações rápidas (anotar, descarregar, foco de 25 min, dia ruim), o humor numa linha e o **Meu dia**, por Manhã, Tarde e Noite, com as 3 prioridades marcadas com ★. O resto do dia fica em linhas que abrem quando você toca. |
 | **Captura mágica** | Escreva ou fale do seu jeito: "dentista sexta 15h no centro", "pagar a luz todo dia 10". O app separa a data, a hora, o local, a repetição e a categoria, e avisa no horário. Funciona sem IA; com IA, ainda fatia em passos. |
 | **Humor em 1 toque** | Check-in na tela Hoje (animado, calmo, cansado, ansioso, pra baixo), com a frase do dia de recompensa, a energia e o humor da semana. |
 | **Remédios e água** | Aviso na hora com **Tomei** e **Lembrar em 15 min**, novo aviso se você não marcar e aviso para **levar o remédio** quando a agenda tem compromisso no horário. |

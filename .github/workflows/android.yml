@@ -14,7 +14,7 @@ on:
 # O número final da versão é o número do build + 20 (continua a contagem do repositório antigo,
 # para o Android aceitar a atualização por cima).
 env:
-  APP_VERSION: "1.8"
+  APP_VERSION: "1.9"
 
 jobs:
   build:

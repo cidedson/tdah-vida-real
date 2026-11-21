@@ -66,7 +66,7 @@ export const TOOLS = [
       properties: {
         itens: {
           type: 'array', maxItems: 3, description: 'Até 3 prioridades, na ordem.',
-          items: { type: 'object', properties: { prioridade: { type: 'string' }, primeiro_passo: { type: 'string', description: 'Primeiro passo físico e concreto, com verbo.' } }, required: ['prioridade', 'primeiro_passo'] },
+          items: { type: 'object', properties: { prioridade: { type: 'string' }, primeiro_passo: { type: 'string', description: 'Primeiro passo físico e concreto, com verbo.' }, periodo: { type: 'string', enum: ['manha', 'tarde', 'noite', ''], description: 'Quando no dia ela cabe melhor, olhando a agenda. Vazio se tanto faz.' } }, required: ['prioridade', 'primeiro_passo'] },
         },
       },
       required: ['itens'],

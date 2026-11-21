@@ -2,6 +2,17 @@
 
 Cada push na `main` gera um APK em [Releases](../../releases). O número final da versão é o número do build.
 
+## 1.9 — 21 de novembro de 2026
+
+- **Tela Hoje mais limpa:** de 4 rolagens para 1 e meia, sem perder nenhuma função.
+- **Card "Agora" no topo:** o progresso do dia e uma coisa só para agora: o remédio da vez (**Tomei** e **Em 15 min**) ou a prioridade (**Focar 25 min** e **Feito**). O aviso de levar o remédio aparece ali.
+- **"Meu dia" no lugar das 3 do dia e do "Meu dia em blocos":** uma lista por Manhã, Tarde e Noite com a agenda, as tarefas com horário, os lembretes e o que você adicionar. As 3 prioridades aparecem com ★ no período em que cabem. O período que já passou se fecha quando está tudo feito.
+- **Adicionar ao dia:** o **+** abre uma folha com o que é, se é uma das 3 prioridades, quando no dia e sugestões da matriz. Tocar num item abre a mesma folha para editar ou tirar.
+- **Humor numa linha:** as 5 carinhas; depois do toque, uma linha que abre a frase do dia, a energia e a semana.
+- **Mais do dia:** Descarrego, Corpo em dia, Feito hoje, Uma coisa boa, Próximos lembretes e Páginas anteriores, cada um numa linha que abre quando você toca. **Descarregar** abre direto o descarrego.
+- Remédios e agenda completos ficam a um toque, nos chips do "Meu dia". O que você já tinha escrito nos blocos aparece como anotação no período.
+- O assistente agora coloca cada prioridade no período certo do dia.
+
 ## 1.8 — 21 de novembro de 2026
 
 - **Aviso de versão nova:** uma vez por dia, ao abrir o app, ele confere no GitHub se saiu versão nova. Se saiu, mostra um card na tela Hoje com as novidades e o botão **Baixar e instalar**, e manda uma notificação uma vez.

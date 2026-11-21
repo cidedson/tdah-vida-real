@@ -7,7 +7,7 @@ import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, 
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '1.8 (navegador)';
+const VERSION = '1.9 (navegador)';
 
 // ---------------- Estado ----------------
 const S = {
@@ -21,6 +21,7 @@ const S = {
   drawer: false, prevTab: 'hoje', focus: null, parkOpen: false, medEdit: false,
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
+  moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
 };
 
 // ---------------- Utilidades ----------------
@@ -213,18 +214,6 @@ function carryToday() {
   return out;
 }
 
-function dosesCard() {
-  const doses = dosesForDay();
-  if (!doses.length) {
-    return `<div class="card"><h2>Remédios e água</h2><p class="hint">Cadastre os horários para receber lembretes, marcar quando tomar e ser avisado de levar o remédio quando tiver compromisso.</p><button onclick="A.tab('remedios')">Cadastrar horários</button></div>`;
-  }
-  const p = S.page; p.doses = p.doses || {};
-  const done = doses.filter(d => p.doses[d.key]).length;
-  const pending = doses.filter(d => !p.doses[d.key]).slice(0, 3);
-  const rows = pending.map(doseRow).join('') || '<p class="hint" style="margin:0">Tudo marcado por hoje.</p>';
-  return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Remédios e água</h2><span class="tag">${done}/${doses.length}</span></div><div class="mt">${rows}</div>
-    <button class="ghost mini mt" onclick="A.tab('remedios')">Ver todos</button></div>`;
-}
 
 async function syncDoses() {
   if (!N.isNative()) return;
@@ -528,6 +517,8 @@ const ICONS = {
   dump: '<path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/>',
   cloud: '<path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 0 0 4.5 12 3.5 3.5 0 0 0 6 19z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
   pin: '<path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
 };
@@ -689,12 +680,6 @@ function sortedReminders() {
   return [...S.reminders].sort((a, b) => (a.done - b.done) || ((a.at ? new Date(a.at).getTime() : 9e15) - (b.at ? new Date(b.at).getTime() : 9e15)));
 }
 
-function remindersCard() {
-  const soon = sortedReminders().filter(r => !r.done && (!r.at || new Date(r.at).getTime() < Date.now() + 14 * DAY)).slice(0, 5);
-  if (!soon.length) return '';
-  return `<div class="card"><h2>Lembretes</h2>${soon.map(r => check(false, h(r.title), `A.toggleReminder('${r.id}')`, dueLabel(r.at) + (r.note ? ' · ' + h(r.note) : ''))).join('')}
-  <button class="ghost mini mt" onclick="A.goTool('lembretes')">Ver todos</button></div>`;
-}
 
 function progressToday() {
   const p = S.page;
@@ -705,75 +690,19 @@ function progressToday() {
   const done = tops.filter(t => t.d).length + dz.filter(d => tk[d.key]).length + body.filter(c => p.body[c]).length;
   return { done, total };
 }
-function nextUp() {
-  const p = S.page; const tk = p.doses || {};
-  const now = new Date();
-  const d = dosesForDay().find(x => !tk[x.key] && atTime(now, x.time).getTime() > Date.now() - 2 * 3600000);
-  if (d) return `${d.time} · ${d.name}`;
-  const t = p.top3.find(x => (x.t || '').trim() && !x.d);
-  return t ? t.t : '';
-}
 function ringSvg(done, total, size = 64, stroke = 7, color = 'var(--hero-chip)', track = 'rgba(255,255,255,.2)') {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, f = total ? Math.min(1, done / total) : 0;
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg>`;
-}
-function heroCard() {
-  const { done, total } = progressToday();
-  const nx = S.viewingPast ? '' : nextUp();
-  return `<div class="hero"><div class="row" style="gap:14px"><div style="position:relative;width:64px;height:64px;flex:none">${ringSvg(done, total)}<div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:15px">${done}/${total}</div></div>
-    <div class="grow"><p class="eyebrow">${S.page.bad ? 'Dia ruim · só o mínimo' : 'Seu dia'}</p><p style="margin:2px 0 0;font-size:17px;font-weight:800">${total ? `${done} de ${total} feitos` : 'Comece pelas 3 do dia'}</p>${nx ? `<p class="sub2">Próximo: ${h(nx)}</p>` : ''}</div></div></div>`;
-}
-function carryAlerts() {
-  if (S.page.id !== todayKey()) return '';
-  const now = Date.now();
-  return carryPlan(S.events).filter(c => c.dayKey === S.page.id && c.event.end > now).map(c => `<div class="alert" style="margin-bottom:12px"><b>Leve com você:</b> ${c.items.map(i => `${h(i.name)} (${i.time})`).join(', ')}. Você vai estar em "${h(c.event.title)}" das ${hm(c.event.start)} às ${hm(c.event.end)}.</div>`).join('');
 }
 function quickActions() {
   const q = (icon, label, act, warm = false) => `<button onclick="${act}"><span class="qi ${warm ? 'warm' : ''}">${svg(icon)}</span>${label}</button>`;
   const bad = S.page.bad;
   return `<div class="quick">${q('dump', 'Descarregar', 'A.quickDump()')}${q('foco', 'Foco 25', 'A.focusStart(25)')}${bad ? q('hoje', 'Dia normal', 'A.setBad(false)') : q('cloud', 'Dia ruim', 'A.setBad(true)', true)}${q('plus', 'Anotar', 'A.newTask()')}</div>`;
 }
-function top3Card() {
-  const p = S.page, id = p.id;
-  const top = p.top3.map((t, i) => `<div class="top3 ${t.d ? 'done' : ''}"><div class="row"><div class="num">${i + 1}</div><div class="grow">${input('pages', id, `top3.${i}.t`, t.t, 'Prioridade')}</div><button class="circ ${t.d ? 'on' : ''}" onclick="A.toggleTop(${i})" aria-label="Feito">${t.d ? svg('check', 16, 3) : ''}</button></div>
-    <div class="row mt"><div class="grow">${input('pages', id, `top3.${i}.s`, t.s, 'Primeiro passo físico')}</div>${t.task && S.projects.some(x => x.id === t.task) ? `<button class="ghost mini" onclick="A.openProject('${t.task}')" aria-label="Abrir a tarefa">${svg('tarefas', 16)}</button>` : ''}${(t.t || '').trim() && !t.d && !S.viewingPast ? `<button class="ghost mini" onclick="A.focusStart(25, ${i})" aria-label="Focar nesta">${svg('foco', 18)}</button>` : ''}</div></div>`).join('');
-  const empty = !p.top3.some(t => (t.t || '').trim());
-  const sug = empty && !S.viewingPast && S.settings.prioSuggest !== false ? suggestThree() : [];
-  return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">As 3 do dia</h2>${S.viewingPast ? '' : `<button class="ghost mini" onclick="A.tab('tarefas')">Matriz</button>`}</div><p class="hint mt">Só três. Se der tempo, você pega mais depois.</p>${sug.length ? `<button style="width:100%;margin-bottom:10px" onclick="A.useThree()">Puxar ${sug.length} da matriz</button>` : ''}${top}</div>`;
-}
-function restOfDay() {
-  const p = S.page, id = p.id;
-  const energy = ['baixa', 'média', 'alta'].map(e => `<button class="pill ${p.energy === e ? 'on' : ''}" onclick="A.setEnergy('${e}')">${e}</button>`).join('');
-  const body = S.settings.bodyChecks.map((c, i) => check(!!p.body[c], h(c), `A.toggleBody(${i})`)).join('');
-  const done = (p.done || []).map((d, i) => `<div class="list-item"><div class="grow">${h(d)}</div><button class="icon" onclick="A.removeDone(${i})">×</button></div>`).join('');
-  return `
-  <div class="card" id="dumpCard"><div class="row"><h2 class="grow" style="margin:0">Descarrego mental</h2><button class="ghost mini" onclick="A.voiceDump()">${MIC} Falar</button></div><p class="hint mt">Tudo que está rodando na cabeça, sem ordem e sem filtro.</p><textarea id="dumpArea" rows="5" placeholder="Joga tudo aqui…" ${fieldAttr('pages', id, 'dump')}>${h(p.dump)}</textarea>${hasAI() && !S.viewingPast ? `<button class="ghost mini mt" onclick="A.organizeDump()">${svg('assistente', 16)} Organizar com a IA</button>` : ''}</div>
-  ${S.settings.moodOn === false || S.viewingPast ? `<div class="card"><h2>Energia agora</h2><div class="pills">${energy}</div></div>` : ''}
-  <div class="card"><h2>Meu dia em blocos</h2><p class="hint">Sem horário exato, só onde cada coisa cabe.</p>
-    <div class="stack"><div><div class="small">Manhã</div>${area('pages', id, 'blocks.manha', p.blocks.manha, '', 2)}</div>
-    <div><div class="small">Tarde</div>${area('pages', id, 'blocks.tarde', p.blocks.tarde, '', 2)}</div>
-    <div><div class="small">Noite</div>${area('pages', id, 'blocks.noite', p.blocks.noite, '', 2)}</div></div></div>
-  <div class="card"><h2>Corpo em dia</h2>${body || '<p class="hint">Edite esta lista em Ajustes.</p>'}</div>
-  <div class="card"><h2>Feito hoje</h2><p class="hint">Vale tudo, até o que não estava na lista.</p>${done}
-    <div class="row mt"><input class="grow" type="text" id="doneInput" placeholder="O que eu fiz" onkeydown="if(event.key==='Enter')A.addDone()"><button onclick="A.addDone()" aria-label="Adicionar">+</button></div></div>
-  <div class="card"><h2>Uma coisa boa de hoje</h2>${input('pages', id, 'good', p.good, '')}</div>`;
-}
 
 // ---------------- Humor em 1 toque ----------------
 function moodWeek(size = 22) {
   return `<div class="moodweek">${lastDays().map(k => { const pg = pageFor(k); const m = pg && pg.mood; const d = keyToDate(k); return `<div class="${k === todayKey() ? 'today' : ''}" title="${h(moodOf(m) ? moodOf(m)[1] : 'sem registro')}">${m ? face(m, size) : '<i class="mdot"></i>'}<small>${'DSTQQSS'[d.getDay()]}</small></div>`; }).join('')}</div>`;
-}
-function moodBlock() {
-  const p = S.page;
-  if (!p.mood) return `<div class="card mood"><h2>Como você está agora?</h2><p class="hint">Um toque. Em troca, a frase do dia.</p><div class="moods">${MOODS.map(([k, l]) => `<button onclick="A.setMood('${k}')">${face(k, 40)}<span>${l}</span></button>`).join('')}</div></div>`;
-  const m = moodOf(p.mood) || MOODS[1];
-  const low = lastDays().filter(k => (pageFor(k) || {}).mood === 'pra-baixo').length;
-  const energy = ['baixa', 'média', 'alta'].map(e => `<button class="pill ${p.energy === e ? 'on' : ''}" onclick="A.setEnergy('${e}')">${e}</button>`).join('');
-  return `<div class="card mood"><div class="row">${face(p.mood, 40)}<div class="grow"><p class="eyebrow">Agora</p><p style="margin:1px 0 0;font-size:17px;font-weight:800">${m[1]}</p></div><button class="ghost mini" onclick="A.moodReset()">Mudar</button></div>
-    <div class="fortune ${S.moodJust ? 'pop' : ''}"><p class="eyebrow">Frase do dia</p><p>${h(phraseOfDay(p.mood, p.id))}</p></div>
-    <div class="row mt" style="gap:10px;align-items:center"><span class="small" style="font-weight:700">Energia</span><div class="pills grow" style="flex-wrap:nowrap">${energy}</div></div>
-    <p class="eyebrow" style="margin-top:14px">Sua semana</p>${moodWeek()}
-    ${low >= 3 ? '<div class="alert mt">Vários dias pra baixo nesta semana. Vale contar para alguém de confiança ou para quem te acompanha. Se pesar demais: CVV 188, de graça, a qualquer hora.</div>' : ''}</div>`;
 }
 
 // ---------------- Resumo da semana ----------------
@@ -834,10 +763,154 @@ function badDay() {
   <div class="alert mt">Se os dias ruins viram semanas, ou aparecem pensamentos de se machucar, procure ajuda. CVV: 188, gratuito e 24 horas. Emergência: SAMU 192.</div></div>`;
 }
 
-function pastPages() {
-  if (S.pastList === null) return `<button class="ghost" style="width:100%" onclick="A.loadPast()">Páginas anteriores</button>`;
-  const items = S.pastList.filter(k => k !== S.page.id);
-  return `<div class="card"><h2>Páginas anteriores</h2>${items.length ? items.map(k => `<div class="list-item"><div class="grow">${cap(fmtDateKey(k))}</div><button class="mini ghost" onclick="A.openPage('${k}')">Abrir</button></div>`).join('') : '<p class="hint" style="margin:0">Nenhuma ainda. Dia em branco é só um dia em branco.</p>'}</div>`;
+
+// ---------------- Hoje (1.9: uma tela só com o que importa agora) ----------------
+const PERIODS = [['manha', 'Manhã', 12], ['tarde', 'Tarde', 18], ['noite', 'Noite', 24]];
+const perName = k => (PERIODS.find(x => x[0] === k) || [null, 'Sem horário'])[1];
+const perOfHour = hr => (hr < 12 ? 'manha' : hr < 18 ? 'tarde' : 'noite');
+const perOfTime = hhmm => perOfHour(Number(String(hhmm).split(':')[0]));
+const isTodayPage = () => S.page && S.page.id === todayKey() && !S.viewingPast;
+
+// O cartão de cima: o progresso do dia e UMA coisa para agora, com o botão certo.
+function agoraCard() {
+  const { done, total } = progressToday();
+  const today = isTodayPage();
+  const dose = today ? pinnedDose() : null;
+  const cur = today && !S.page.bad ? currentAction() : null;
+  const now = Date.now();
+  let main, acts = '';
+  if (dose) {
+    const late = atTime(new Date(), dose.time).getTime() < now;
+    main = `<p class="eyebrow">${late ? 'Atrasado' : 'Próximo'} · ${dose.time}</p><p class="bigname">${h(dose.name)}</p>`;
+    acts = `<button class="light" onclick="A.toggleDose('${dose.key}')">${svg('check', 16, 3)} Tomei</button><button class="outline" onclick="A.snoozeNow('${dose.key}')">Em 15 min</button>`;
+  } else if (cur) {
+    main = `<p class="eyebrow">Agora</p><p class="bigname">${h(cur.title)}</p>${cur.step && cur.step !== cur.title ? `<p class="sub2">Passo: ${h(cur.step)}</p>` : ''}`;
+    acts = `<button class="light" onclick="A.focusStart(25, ${cur.top})">${svg('foco', 16)} Focar 25 min</button><button class="outline" onclick="A.doneCurrent()">Feito</button>`;
+  } else {
+    main = `<p class="eyebrow">${S.page.bad ? 'Dia ruim · só o mínimo' : 'Seu dia'}</p><p class="bigname">${total && done >= total ? 'Tudo feito por hoje' : total ? `${done} de ${total} feitos` : 'Comece pelas 3 de hoje'}</p>`;
+  }
+  const carry = today ? carryPlan(S.events).find(c => c.dayKey === S.page.id && c.event.end > now) : null;
+  const carryTxt = carry ? `<p class="sub2 carry">${svg('remedios', 14)} Leve: ${carry.items.map(i => `${h(i.name)} (${i.time})`).join(', ')} · ${h(carry.event.title)} ${hm(carry.event.start)}</p>` : '';
+  return `<div class="hero agora"><div class="row" style="gap:14px;align-items:center"><div class="ringbox">${ringSvg(done, total, 56, 6)}<b>${done}/${total}</b></div><div class="grow" style="min-width:0">${main}</div></div>${carryTxt}${acts ? `<div class="row acts">${acts}</div>` : ''}</div>`;
+}
+
+// Humor numa linha: as 5 carinhas; depois de marcar, uma linha que abre a frase do dia.
+function moodStrip() {
+  const p = S.page;
+  if (!p.mood) return `<div class="card moodstrip"><span class="lbl">Como você está?</span><div class="mfaces">${MOODS.map(([k, l]) => `<button onclick="A.setMood('${k}')" aria-label="${l}" title="${l}">${face(k, 34)}</button>`).join('')}</div></div>`;
+  const m = moodOf(p.mood) || MOODS[1];
+  const low = lastDays().filter(k => (pageFor(k) || {}).mood === 'pra-baixo').length;
+  const energy = ['baixa', 'média', 'alta'].map(e => `<button class="pill ${p.energy === e ? 'on' : ''}" onclick="A.setEnergy('${e}')">${e}</button>`).join('');
+  const open = S.moodOpen;
+  return `<div class="card moodstrip ${open ? 'open' : ''}"><button class="mrow" onclick="A.moodToggle()" aria-expanded="${open}">${face(p.mood, 30)}<span class="grow"><b>${m[1]}</b>${p.energy ? `<span class="small"> · energia ${p.energy}</span>` : ''}<span class="small"> · frase do dia</span></span>${svg(open ? 'up' : 'down', 18)}</button>
+    ${open ? `<div class="fortune ${S.moodJust ? 'pop' : ''}"><p class="eyebrow">Frase do dia</p><p>${h(phraseOfDay(p.mood, p.id))}</p></div>
+    <div class="row mt" style="gap:10px;align-items:center"><span class="small" style="font-weight:700">Energia</span><div class="pills grow" style="flex-wrap:nowrap">${energy}</div></div>
+    <div class="row" style="margin-top:12px;align-items:flex-end"><div class="grow"><p class="eyebrow" style="margin:0">Sua semana</p>${moodWeek()}</div></div>
+    <button class="ghost mini mt" onclick="A.moodReset()">Mudar o humor</button>` : ''}
+    ${low >= 3 ? '<div class="alert mt">Vários dias pra baixo nesta semana. Vale contar para alguém de confiança ou para quem te acompanha. Se pesar demais: CVV 188, de graça, a qualquer hora.</div>' : ''}</div>`;
+}
+
+// Tudo que tem lugar no dia, já separado em Manhã, Tarde e Noite.
+function dayEntries() {
+  const p = S.page, today = isTodayPage(), out = [];
+  p.top3.forEach((t, i) => { if ((t.t || '').trim()) out.push({ kind: 'prio', i, per: t.per || null, time: '', title: t.t, sub: t.s && t.s !== t.t ? t.s : '', done: !!t.d }); });
+  (p.items || []).forEach(x => out.push({ kind: 'item', id: x.id, per: x.per || null, time: x.time || '', title: x.t, done: !!x.d }));
+  if (today) {
+    for (const e of S.events || []) if (!e.allDay) out.push({ kind: 'event', per: perOfHour(new Date(e.start).getHours()), time: hm(e.start), title: e.title, sub: `até ${hm(e.end)}`, done: e.end < Date.now() });
+    for (const t of S.projects) if (!t.done && !t.someday && t.time && t.deadline === p.id) out.push({ kind: 'task', id: t.id, per: perOfTime(t.time), time: t.time, title: t.title, sub: t.place || '', done: false });
+    for (const r of S.reminders) {
+      if (r.done || r.taskId || !r.at || todayKey(new Date(r.at)) !== p.id) continue;
+      const d = new Date(r.at); out.push({ kind: 'rem', id: r.id, per: perOfHour(d.getHours()), time: hm(d.getTime()), title: r.title, sub: r.note || '', done: false });
+    }
+  }
+  for (const [k] of PERIODS) { const txt = ((p.blocks || {})[k] || '').trim(); if (txt) out.push({ kind: 'note', per: k, time: '', title: txt, done: false }); }
+  return out;
+}
+function dayRow(e) {
+  const star = e.kind === 'prio';
+  const box = (on, act, label) => `<button class="dbox ${on ? 'on' : ''}" onclick="${act}" aria-label="${label}">${on ? svg('check', 14, 3) : ''}</button>`;
+  let lead, act = '', tap = '';
+  if (e.kind === 'prio') { lead = box(e.done, `A.toggleTop(${e.i})`, e.done ? 'Desmarcar' : 'Feito'); tap = `A.daySheetOpen('prio', ${e.i})`; if (!e.done && isTodayPage()) act = `<button class="dgo" onclick="A.focusStart(25, ${e.i})" aria-label="Focar em ${h(e.title)}">${svg('foco', 18)}</button>`; }
+  else if (e.kind === 'item') { lead = box(e.done, `A.toggleDayItem('${e.id}')`, e.done ? 'Desmarcar' : 'Feito'); tap = `A.daySheetOpen('item', '${e.id}')`; }
+  else if (e.kind === 'rem') { lead = box(false, `A.toggleReminder('${e.id}')`, 'Feito'); }
+  else if (e.kind === 'task') { lead = `<span class="dico">${svg('tarefas', 16)}</span>`; tap = `A.openProject('${e.id}')`; }
+  else if (e.kind === 'event') lead = `<span class="dico">${svg('agenda', 16)}</span>`;
+  else { lead = `<span class="dico">${svg('dump', 16)}</span>`; tap = `A.editBlockNote('${e.per}')`; }
+  return `<div class="drow ${e.done ? 'done' : ''} ${star ? 'prio' : ''}">${lead}<div class="dtxt" ${tap ? `onclick="${tap}" role="button"` : ''}>${e.time ? `<span class="dtime">${e.time}</span>` : ''}<span class="dt">${star ? '<span class="dstar" aria-label="prioridade">★ </span>' : ''}${h(e.title)}</span>${e.sub ? `<span class="ds">${h(e.sub)}</span>` : ''}</div>${act}</div>`;
+}
+function meuDiaCard() {
+  const p = S.page, today = isTodayPage();
+  const all = dayEntries();
+  const prios = all.filter(e => e.kind === 'prio');
+  const pd = prios.filter(e => e.done).length;
+  const byTime = (a, b) => (a.time || '99').localeCompare(b.time || '99') || (b.kind === 'prio') - (a.kind === 'prio');
+  const loose = all.filter(e => !e.per).sort(byTime);
+  const nowPer = perOfHour(new Date().getHours());
+  const perIdx = PERIODS.findIndex(x => x[0] === nowPer);
+  let html = '';
+  // Sugestão quando ainda não há prioridade
+  const sug = !prios.length && today && S.settings.prioSuggest !== false ? suggestThree() : [];
+  if (!prios.length) html += `<div class="dempty"><p style="margin:0;font-weight:700">Escolha até 3 prioridades</p><p class="small" style="margin:2px 0 10px">Só três. Se der tempo, você pega mais depois.</p>${sug.length ? `<button style="width:100%" onclick="A.useThree()">Usar a sugestão da matriz (${sug.length})</button><p class="small" style="margin:6px 0 0">${sug.map(t => h(t.title)).join(' · ')}</p>` : ''}<button class="ghost" style="width:100%;margin-top:8px" onclick="A.daySheetOpen('new', 'prio')">${svg('plus', 16)} Escrever uma prioridade</button></div>`;
+  if (loose.length) html += `<div class="dper"><p class="dph">Sem horário</p>${loose.map(dayRow).join('')}</div>`;
+  PERIODS.forEach(([k, label], idx) => {
+    const list = all.filter(e => e.per === k).sort(byTime);
+    if (!list.length) return;
+    const past = today && idx < perIdx;
+    const pending = list.some(e => !e.done && (e.kind === 'prio' || e.kind === 'item' || e.kind === 'rem'));
+    const open = S.perOpen[k] ?? !(past && !pending);
+    const dn = list.filter(e => e.done).length;
+    html += `<div class="dper ${k === nowPer && today ? 'now' : ''}"><button class="dph" onclick="A.togglePer('${k}')" aria-expanded="${open}">${label}${k === nowPer && today ? ' <span class="nowtag">agora</span>' : ''}<span class="grow"></span>${!open ? `<span class="small">${dn} de ${list.length}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? list.map(dayRow).join('') : ''}</div>`;
+  });
+  const doses = dosesForDay(); const tk = p.doses || {};
+  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today ? `<button class="chip" onclick="A.tab('agenda')">${svg('agenda', 14)} Agenda</button>` : ''}</div>`;
+  const conn = today && N.isNative() && S.calPerm !== 'granted' ? `<p class="small" style="margin:8px 0 0">Conecte a agenda em Ajustes para ver seus compromissos aqui.</p>` : '';
+  return `<div class="card meudia"><div class="row"><h2 class="grow" style="margin:0">Meu dia</h2>${prios.length ? `<span class="tag">★ ${pd} de ${prios.length}</span>` : ''}<button class="iconbtn sm" onclick="A.daySheetOpen('new')" aria-label="Adicionar ao dia">${svg('plus', 20, 2.2)}</button></div>${chips}${html}${conn}
+    ${prios.length && prios.length < 3 && today ? `<button class="ghost mini mt" onclick="A.daySheetOpen('new', 'prio')">★ Adicionar prioridade</button>` : ''}</div>`;
+}
+// Folha para criar ou editar o que está no dia.
+function daySheet() {
+  const d = S.daySheet; if (!d) return '';
+  const p = S.page;
+  const full = p.top3.filter(t => (t.t || '').trim()).length >= 3;
+  const per = d.per ?? null;
+  const pills = [...PERIODS.map(([k, l]) => [k, l]), [null, 'Sem horário']].map(([k, l]) => `<button class="pill ${per === k ? 'on' : ''}" onclick="A.daySheetPer(${k ? `'${k}'` : 'null'})">${l}</button>`).join('');
+  const isPrio = d.prio;
+  const sug = isPrio && d.mode === 'new' && S.settings.prioSuggest !== false ? suggestThree().filter(t => !p.top3.some(x => x.task === t.id)) : [];
+  const head = d.mode === 'new' ? 'Adicionar ao dia' : isPrio ? `Prioridade ${d.i + 1}` : 'Item do dia';
+  return `<div class="scrim" style="z-index:32" onclick="A.daySheetClose()"></div><div class="sheet" role="dialog" aria-label="${head}"><div class="grab"></div>
+    <p class="eyebrow">${head}</p>
+    <input type="text" id="dsTitle" class="mt" placeholder="${isPrio ? 'O que importa hoje' : 'O que fazer'}" value="${h(d.t || '')}">
+    ${isPrio ? `<input type="text" id="dsStep" class="mt" placeholder="Primeiro passo, bem pequeno (opcional)" value="${h(d.s || '')}">` : ''}
+    <div class="setrow" style="border:0;min-height:48px"><div class="lb">★ Uma das 3 prioridades<div class="small" style="font-weight:500">${full && !isPrio ? 'Já tem 3. Conclua ou tire uma antes.' : 'Aparece no topo e na notificação fixa'}</div></div>${d.mode === 'new' ? sw(isPrio, 'Uma das 3 prioridades', full && !isPrio ? '' : 'A.daySheetPrio()') : ''}</div>
+    <p class="small" style="margin:4px 0 6px;font-weight:700">Quando no dia</p><div class="pills">${pills}</div>
+    ${sug.length ? `<p class="small" style="margin:14px 0 6px;font-weight:700">Da sua matriz</p><div class="pills">${sug.map(t => `<button class="pill" onclick="A.daySheetFromTask('${t.id}')">${h(t.title)}</button>`).join('')}</div>` : ''}
+    <button style="width:100%;margin-top:16px" onclick="A.daySheetSave()">${d.mode === 'new' ? 'Adicionar' : 'Salvar'}</button>
+    <div class="row mt">${d.mode === 'edit' ? `<button class="ghost grow" onclick="A.daySheetRemove()">${isPrio ? 'Tirar das 3' : 'Tirar do dia'}</button>` : ''}${d.mode === 'edit' && isPrio && p.top3[d.i] && p.top3[d.i].task ? `<button class="ghost grow" onclick="A.daySheetClose();A.openProject('${p.top3[d.i].task}')">Abrir a tarefa</button>` : ''}<button class="ghost grow" onclick="A.daySheetClose()">Cancelar</button></div></div>`;
+}
+// O resto do dia, fechado em linhas: abre uma de cada vez.
+function maisDoDia() {
+  const p = S.page, id = p.id, today = isTodayPage();
+  const bodyN = S.settings.bodyChecks.filter(c => p.body[c]).length;
+  const dumpN = (p.dump || '').split('\n').filter(x => x.trim()).length;
+  const remN = today ? sortedReminders().filter(r => !r.done && (!r.at || new Date(r.at).getTime() < Date.now() + 14 * DAY)).length : 0;
+  const rows = [
+    ['dump', 'Descarrego mental', dumpN ? `${dumpN} ${dumpN === 1 ? 'linha' : 'linhas'}` : 'vazio', 'dump'],
+    ['corpo', 'Corpo em dia', `${bodyN}/${S.settings.bodyChecks.length}`, 'hoje'],
+    ['feito', 'Feito hoje', String((p.done || []).length), 'check'],
+    ['boa', 'Uma coisa boa', (p.good || '').trim() ? 'anotada' : '', 'kit'],
+  ];
+  if (today) rows.push(['lemb', 'Próximos lembretes', String(remN), 'lembretes']);
+  rows.push(['antes', 'Páginas anteriores', '', 'semana']);
+  const body = k => {
+    if (k === 'dump') return `<div class="row"><p class="hint grow" style="margin:0">Tudo que está rodando na cabeça, sem ordem e sem filtro.</p><button class="ghost mini" onclick="A.voiceDump()">${MIC} Falar</button></div><textarea id="dumpArea" class="mt" rows="5" placeholder="Joga tudo aqui…" ${fieldAttr('pages', id, 'dump')}>${h(p.dump)}</textarea>${hasAI() && today ? `<button class="ghost mini mt" onclick="A.organizeDump()">${svg('assistente', 16)} Organizar com a IA</button>` : ''}`;
+    if (k === 'corpo') return S.settings.bodyChecks.map((c, i) => check(!!p.body[c], h(c), `A.toggleBody(${i})`)).join('') || '<p class="hint">Edite esta lista em Ajustes.</p>';
+    if (k === 'feito') return `<p class="hint" style="margin-top:0">Vale tudo, até o que não estava na lista.</p>${(p.done || []).map((d, i) => `<div class="list-item"><div class="grow">${h(d)}</div><button class="icon" onclick="A.removeDone(${i})">×</button></div>`).join('')}<div class="row mt"><input class="grow" type="text" id="doneInput" placeholder="O que eu fiz" onkeydown="if(event.key==='Enter')A.addDone()"><button onclick="A.addDone()" aria-label="Adicionar">+</button></div>`;
+    if (k === 'boa') return input('pages', id, 'good', p.good, 'Uma coisa boa de hoje');
+    if (k === 'lemb') { const soon = sortedReminders().filter(r => !r.done && (!r.at || new Date(r.at).getTime() < Date.now() + 14 * DAY)).slice(0, 6); return (soon.map(r => check(false, h(r.title), `A.toggleReminder('${r.id}')`, dueLabel(r.at) + (r.note ? ' · ' + h(r.note) : ''))).join('') || '<p class="hint" style="margin:0">Nada nos próximos 14 dias.</p>') + `<button class="ghost mini mt" onclick="A.tab('lembretes')">Ver todos</button>`; }
+    if (k === 'antes') { if (S.pastList === null) { if (!S._pastLoading) { S._pastLoading = true; setTimeout(() => A.loadPast(), 0); } return '<p class="hint" style="margin:0">Carregando…</p>'; } const items = S.pastList.filter(x => x !== p.id); return items.length ? items.map(x => `<div class="list-item"><div class="grow">${cap(fmtDateKey(x))}</div><button class="mini ghost" onclick="A.openPage('${x}')">Abrir</button></div>`).join('') : '<p class="hint" style="margin:0">Nenhuma ainda. Dia em branco é só um dia em branco.</p>'; }
+    return '';
+  };
+  return `<div class="card mais"><p class="eyebrow" style="margin:0 0 4px">Mais do dia</p>${rows.map(([k, l, st, ic]) => { const open = S.moreOpen === k; return `<div class="mitem ${open ? 'open' : ''}"><button class="mhead2" onclick="A.toggleMore('${k}')" aria-expanded="${open}"><span class="mi">${svg(ic, 18)}</span><span class="grow">${l}</span>${st ? `<span class="small">${st}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? `<div class="mbody" ${k === 'dump' ? 'id="dumpCard"' : ''}>${body(k)}</div>` : ''}</div>`; }).join('')}</div>`;
 }
 
 function scrHoje() {
@@ -849,16 +922,13 @@ function scrHoje() {
   if (S.viewingPast) b += `<div class="card row"><div class="grow small">Você está vendo uma página anterior.</div><button class="mini" onclick="A.openPage('${todayKey()}')">Voltar para hoje</button></div>`;
   b += backupNudge();
   if (!S.viewingPast) b += updateCard();
-  b += heroCard();
-  if (!S.viewingPast) b += carryAlerts() + quickActions();
+  b += agoraCard();
+  if (!S.viewingPast) b += quickActions();
   if (!S.viewingPast && showWeekOnHoje()) b += weekSummaryCard(true);
-  if (!S.viewingPast && S.settings.moodOn !== false) b += moodBlock();
-  b += p.bad ? badDay() : top3Card();
-  if (!S.viewingPast) b += agendaCard();
-  b += dosesCard();
-  if (!S.viewingPast) b += remindersCard();
-  if (!p.bad) b += restOfDay();
-  b += pastPages();
+  if (!S.viewingPast && S.settings.moodOn !== false) b += moodStrip();
+  b += p.bad ? badDay() : meuDiaCard();
+  b += maisDoDia();
+  b += daySheet();
   const s = S.settings;
   const right = s.driveUri ? `<button class="chip ${s.driveError ? 'warn' : ''}" onclick="A.tab('ajustes')">${svg('cloud', 14, 2.2)}${s.driveError ? 'Backup falhou' : 'Backup ok'}</button>` : '';
   return [title, sub, b, { right }];
@@ -1417,7 +1487,8 @@ function buildContext() {
     lines.push(`Página de hoje: humor ${moodOf(p.mood) ? moodOf(p.mood)[1].toLowerCase() : 'não marcado'}; energia ${p.energy || 'não marcada'}; ${p.bad ? 'marcado como DIA RUIM' : 'dia normal'}.`);
     const mw = lastDays().map(k => { const pg = pageFor(k); return pg && pg.mood ? `${fmtDateKey(k)}: ${moodOf(pg.mood)[1].toLowerCase()}` : null; }).filter(Boolean);
     if (mw.length) lines.push('Humor nos últimos 7 dias: ' + mw.join('; '));
-    lines.push('As 3 do dia: ' + p.top3.map((t, i) => `${i + 1}) ${t.t || '(vazio)'}${t.s ? ' — 1º passo: ' + t.s : ''}${t.d ? ' [feito]' : ''}`).join(' | '));
+    lines.push('As 3 do dia: ' + p.top3.map((t, i) => `${i + 1}) ${t.t || '(vazio)'}${t.s ? ' — 1º passo: ' + t.s : ''}${t.per ? ' (' + perName(t.per).toLowerCase() + ')' : ''}${t.d ? ' [feito]' : ''}`).join(' | '));
+    if ((p.items || []).length) lines.push('Outros itens do dia: ' + p.items.map(x => `${x.t}${x.per ? ' (' + perName(x.per).toLowerCase() + ')' : ''}${x.d ? ' [feito]' : ''}`).join('; '));
     if (p.dump) lines.push('Descarrego mental: ' + p.dump.slice(0, 1200));
     if (p.done.length) lines.push('Feito hoje: ' + p.done.join('; '));
     if (S.settings.shareBody) {
@@ -1483,7 +1554,7 @@ async function execTool(name, input) {
   const p = S.page;
   switch (name) {
     case 'definir_tres_do_dia': {
-      (input.itens || []).slice(0, 3).forEach((it, i) => { p.top3[i] = { t: it.prioridade || '', s: it.primeiro_passo || '', d: false }; });
+      (input.itens || []).slice(0, 3).forEach((it, i) => { p.top3[i] = { t: it.prioridade || '', s: it.primeiro_passo || '', d: false, per: ['manha', 'tarde', 'noite'].includes(it.periodo) ? it.periodo : null }; });
       await savePage();
       return 'As 3 do dia foram definidas.';
     }
@@ -2026,6 +2097,8 @@ const A = {
   openKit() { S.guideFilter = 'kit'; S.guideQuery = ''; S.tab = 'guia'; S.drawer = false; render(); window.scrollTo(0, 0); },
   openGuide() { S.guideFilter = 'all'; A.tab('guia'); },
   quickDump() {
+    if (S.tab !== 'hoje' || S.viewingPast) return A.openAssistant();
+    S.moreOpen = 'dump'; render();
     const el = document.getElementById('dumpArea');
     if (!el) return A.openAssistant();
     el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus();
@@ -2138,11 +2211,48 @@ const A = {
   // Hoje
   saveName() { const v = document.getElementById('nameInput').value.trim(); if (!v) return; S.settings.name = v; persist('settings', S.settings, true); render(); },
   setBad(v) { S.page.bad = v; savePage(); render(); },
+  moodToggle() { S.moodOpen = !S.moodOpen; render(); },
+  togglePer(k) { const el = document.querySelector(`.dper [onclick="A.togglePer('${k}')"]`); const open = el ? el.getAttribute('aria-expanded') === 'true' : true; S.perOpen[k] = !open; render(); },
+  toggleMore(k) { S.moreOpen = S.moreOpen === k ? null : k; render(); },
+  async doneCurrent() { const cur = currentAction(); if (!cur) return; await completeCurrent(cur); render(); },
+  async toggleDayItem(id) { const x = (S.page.items || []).find(y => y.id === id); if (!x) return; x.d = !x.d; await savePage(); render(); },
+  editBlockNote(k) { const v = prompt(`Anotação da ${perName(k).toLowerCase()}:`, S.page.blocks[k] || ''); if (v === null) return; S.page.blocks[k] = v; savePage(); render(); },
+  daySheetOpen(mode, arg) {
+    const p = S.page;
+    if (mode === 'prio') { const t = p.top3[arg]; S.daySheet = { mode: 'edit', prio: true, i: arg, t: t.t, s: t.s, per: t.per || null }; }
+    else if (mode === 'item') { const x = (p.items || []).find(y => y.id === arg); if (!x) return; S.daySheet = { mode: 'edit', prio: false, id: x.id, t: x.t, per: x.per || null }; }
+    else { const full = p.top3.filter(t => (t.t || '').trim()).length >= 3; S.daySheet = { mode: 'new', prio: arg === 'prio' ? !full : !full && !p.top3.some(t => (t.t || '').trim()), t: '', s: '', per: isTodayPage() ? perOfHour(new Date().getHours()) : null }; }
+    render(); setTimeout(() => { const el = document.getElementById('dsTitle'); if (el && !el.value) el.focus(); }, 50);
+  },
+  _dsKeep() { const d = S.daySheet; if (!d) return; const a = document.getElementById('dsTitle'); const b = document.getElementById('dsStep'); if (a) d.t = a.value; if (b) d.s = b.value; },
+  daySheetPer(k) { A._dsKeep(); S.daySheet.per = k; render(); },
+  daySheetPrio() { A._dsKeep(); S.daySheet.prio = !S.daySheet.prio; render(); },
+  daySheetClose() { S.daySheet = null; render(); },
+  daySheetFromTask(id) { const t = objFor('projects', id); if (!t) return; A._dsKeep(); const st = nextStep(t); Object.assign(S.daySheet, { t: t.title, s: st ? st.t : '', task: t.id, prio: true }); render(); },
+  async daySheetSave() {
+    A._dsKeep(); const d = S.daySheet; const t = (d.t || '').trim(); if (!t) return toast('Escreva o que é');
+    if (S.page.id !== todayKey() && !S.viewingPast) await loadPage(todayKey());
+    const p = S.page;
+    if (d.prio) {
+      let i = d.mode === 'edit' && d.i != null ? d.i : p.top3.findIndex(x => !(x.t || '').trim());
+      if (i < 0) return toast('Já tem 3 prioridades. Conclua ou tire uma antes.');
+      const prev = p.top3[i] || {};
+      p.top3[i] = { ...prev, t, s: (d.s || '').trim(), per: d.per || null, d: d.mode === 'edit' ? !!prev.d : false, task: d.task || (d.mode === 'edit' ? prev.task : undefined) };
+    } else if (d.mode === 'edit') { const x = (p.items || []).find(y => y.id === d.id); if (x) Object.assign(x, { t, per: d.per || null }); }
+    else { p.items = p.items || []; p.items.push({ id: uid(), t, per: d.per || null, d: false }); }
+    await savePage(); S.daySheet = null; render(); updatePinned();
+  },
+  async daySheetRemove() {
+    const d = S.daySheet, p = S.page;
+    if (d.prio) { p.top3.splice(d.i, 1); p.top3.push({ t: '', s: '', d: false }); }
+    else p.items = (p.items || []).filter(y => y.id !== d.id);
+    await savePage(); S.daySheet = null; render(); updatePinned();
+  },
   setEnergy(e) { S.page.energy = S.page.energy === e ? null : e; savePage(); render(); },
   async setMood(k) {
     if (S.page.id !== todayKey()) await loadPage(todayKey());
     S.page.mood = k; S.page.moodAt = Date.now(); await savePage(); S.weekPages[S.page.id] = S.page;
-    S.moodJust = true; render(); setTimeout(() => { S.moodJust = false; }, 1200);
+    S.moodJust = true; S.moodOpen = true; render(); setTimeout(() => { S.moodJust = false; }, 1200);
   },
   async moodReset() { S.page.mood = null; await savePage(); render(); },
   async updateLater() { const u = S.update; if (!u) return; S.settings.updateSnooze = { ...(S.settings.updateSnooze || {}), [u.version]: Date.now() + 3 * DAY }; await db.put('settings', S.settings); render(); toast('Aviso de novo em 3 dias. A versão também fica em Ajustes › Sobre o app.'); },
