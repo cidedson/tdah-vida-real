@@ -13,6 +13,8 @@ Cada push na `main` gera um APK em [Releases](../../releases). O número final d
 - Remédios e agenda completos ficam a um toque, nos chips do "Meu dia". O que você já tinha escrito nos blocos aparece como anotação no período.
 - O assistente agora coloca cada prioridade no período certo do dia.
 - Correção: com o Gemini, o assistente respondia "cannot be empty" e não funcionava. Era uma opção vazia na lista de períodos, que o Gemini não aceita.
+- Correção: o assistente respondia "Failed to fetch" quando a internet oscilava ou o Gemini caía sem avisar. Agora ele tenta de novo sozinho e, no celular, repete pela conexão nativa do Android. Se ainda falhar, diz o que houve e mostra o botão **Tentar de novo**, que reenvia a mesma mensagem.
+- Mensagens de erro não entram mais no histórico mandado para a IA.
 
 ## 1.8 — 21 de novembro de 2026
 

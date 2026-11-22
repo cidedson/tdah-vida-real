@@ -1,4 +1,5 @@
 // Assistente de IA dentro do app: Claude (Anthropic) ou Gemini (Google), com contexto do app e ações.
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { CHAPTERS } from './content.js';
 
 export const PROVIDERS = {
@@ -225,31 +226,53 @@ function httpError(res, data, provider) {
 }
 
 // Tenta de novo quando o servidor está sobrecarregado (espera 1,5 s e depois 6 s).
+// Falha de rede tenta de novo só uma vez.
 async function withRetry(fn, tries = 3) {
   for (let i = 0; ; i++) {
     try { return await fn(); }
     catch (e) {
-      if (!e.busy || i >= tries - 1) throw e;
+      const again = e.busy || (e.net && i === 0);
+      if (!again || i >= tries - 1) throw e;
       await sleep(1500 * (i + 1) * (i + 1));
     }
   }
 }
 
+function netError() {
+  const err = new Error('Sem conexão com a IA agora: a internet oscilou ou o servidor não respondeu. Confira o Wi-Fi ou os dados móveis e toque em Tentar de novo.');
+  err.net = true;
+  return err;
+}
+
+// O fetch do WebView dá "Failed to fetch" quando a rede cai ou quando o servidor
+// devolve um erro sem cabeçalho CORS (acontece com o Gemini sobrecarregado).
+// No celular, repete pela conexão nativa, que não depende de CORS e mostra o erro real.
+async function postJSON(url, headers, body) {
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    return { status: res.status, ok: res.ok, data };
+  } catch (e) {
+    if (!Capacitor.isNativePlatform()) throw netError();
+    try {
+      const r = await CapacitorHttp.post({ url, headers, data: body, connectTimeout: 20000, readTimeout: 90000 });
+      let data = r.data;
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (x) { data = {}; } }
+      return { status: r.status, ok: r.status >= 200 && r.status < 300, data: data || {} };
+    } catch (e2) { throw netError(); }
+  }
+}
+
 // ---------- Claude ----------
 async function callClaude({ apiKey, model, system, messages, tools = TOOLS, extra = {}, maxTokens = 1500 }) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, tools, messages, ...extra }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw httpError(res, data, 'anthropic');
-  return data;
+  const res = await postJSON('https://api.anthropic.com/v1/messages', {
+    'content-type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  }, { model, max_tokens: maxTokens, system, tools, messages, ...extra });
+  if (!res.ok) throw httpError(res, res.data, 'anthropic');
+  return res.data;
 }
 
 async function runClaude({ apiKey, model, system, history, execTool, maxTurns }) {
@@ -289,14 +312,11 @@ export const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map(t => ({ name: t.n
 
 async function callGemini({ apiKey, model, systemText, contents, tools = GEMINI_TOOLS, extra = {} }) {
   const id = model.replace(/^models\//, '');
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(id)}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, tools, ...extra }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw httpError(res, data, 'gemini');
-  return data;
+  const res = await postJSON(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(id)}:generateContent`,
+    { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+    { systemInstruction: { parts: [{ text: systemText }] }, contents, tools, ...extra });
+  if (!res.ok) throw httpError(res, res.data, 'gemini');
+  return res.data;
 }
 
 async function runGemini({ apiKey, model, system, history, execTool, maxTurns }) {

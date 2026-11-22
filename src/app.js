@@ -1650,7 +1650,7 @@ function scrAssistente() {
   const msgs = S.chat.display;
   const list = msgs.map(m => m.role === 'user'
     ? `<div class="bubble me">${md(m.text)}</div>`
-    : `<div class="bubble ai">${md(m.text || '…')}${(m.actions || []).length ? `<div class="mt">${m.actions.map(x => `<span class="tag" style="margin:2px 4px 2px 0">✓ ${h(x)}</span>`).join('')}</div>` : ''}</div>`).join('');
+    : `<div class="bubble ai">${md(m.text || '…')}${(m.actions || []).length ? `<div class="mt">${m.actions.map(x => `<span class="tag" style="margin:2px 4px 2px 0">✓ ${h(x)}</span>`).join('')}</div>` : ''}${m.err && m === msgs[msgs.length - 1] && !S.sending ? `<div class="mt"><button class="ghost mini" onclick="A.retrySend()">Tentar de novo</button></div>` : ''}</div>`).join('');
   const empty = !msgs.length ? `<div class="card"><p style="margin:0;font-weight:800">Fale ou escreva o que está rolando.</p><p class="hint mt" style="margin-bottom:0">Ele vê sua agenda, a página de hoje, as rotinas, o kit e os lembretes. Pode criar e fatiar tarefas na matriz, marcar passos, montar as 3 do dia, criar lembretes e organizar o seu descarrego.</p></div>` : '';
   const thinking = S.sending ? '<div class="bubble ai"><span class="muted">Pensando…</span></div>' : '';
   const dis = S.sending ? 'disabled' : '';
@@ -2709,6 +2709,13 @@ const A = {
   },
   toggleShareBody() { S.settings.shareBody = !S.settings.shareBody; persist('settings', S.settings, true); render(); },
   async newChat() { S.chat = { id: 'chat', display: [] }; await db.put('misc', S.chat); render(); },
+  retrySend() {
+    const d = S.chat.display, m = d[d.length - 1];
+    if (!m || !m.err || S.sending) return;
+    d.pop();
+    if (d.length && d[d.length - 1].role === 'user' && d[d.length - 1].text === m.retry) d.pop();
+    A.send(m.retry);
+  },
   async send(preset) {
     if (S.sending) return;
     const el = document.getElementById('chatInput');
@@ -2717,12 +2724,19 @@ const A = {
     S.chat.display.push({ role: 'user', text });
     S.sending = true; render(); window.scrollTo(0, document.body.scrollHeight);
     try {
-      let hist = S.chat.display.slice(-20).map(m => ({ role: m.role, content: m.text || '…' }));
+      // Mensagens de erro não vão para a IA; mensagens seguidas da mesma pessoa viram uma só.
+      const hist = [];
+      for (const m of S.chat.display.slice(-20)) {
+        if (m.err) continue;
+        const last = hist[hist.length - 1];
+        if (last && last.role === m.role) last.content += '\n\n' + (m.text || '…');
+        else hist.push({ role: m.role, content: m.text || '…' });
+      }
       while (hist.length && hist[0].role !== 'user') hist.shift();
       const { text: reply, actions } = await runAgent({ provider: keyStore.provider(), apiKey: keyStore.get(), model: keyStore.model(), system: buildSystem(buildContext()), history: hist, execTool });
       S.chat.display.push({ role: 'assistant', text: reply || (actions.length ? 'Feito.' : '…'), actions });
     } catch (e) {
-      S.chat.display.push({ role: 'assistant', text: 'Não consegui responder agora: ' + (e.message || e) });
+      S.chat.display.push({ role: 'assistant', text: 'Não consegui responder agora: ' + (e.message || e), err: true, retry: text });
     }
     S.chat.display = S.chat.display.slice(-60);
     await db.put('misc', S.chat);
