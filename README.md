@@ -124,6 +124,7 @@ Por padrão, o assistente não recebe os nomes dos remédios nem os itens do "Co
 | `src/events.js` | Ajuste dos eventos de dia inteiro da agenda |
 | `src/db.js` | Banco IndexedDB, exportar e importar |
 | `src/content.js` | As 100 estratégias e as 7 rotinas |
+| `docs/tarefa-por-link/` | Gera no computador o link de uma tarefa, para o Copilot ou à mão ([como usar](docs/tarefa-por-link/README.md)) |
 
 ## Gerar o APK
 
