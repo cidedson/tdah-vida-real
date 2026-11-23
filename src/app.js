@@ -7,7 +7,7 @@ import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, 
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '1.9 (navegador)';
+const VERSION = '2.0 (navegador)';
 
 // ---------------- Estado ----------------
 const S = {
@@ -22,6 +22,7 @@ const S = {
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
   moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
+  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false,
 };
 
 // ---------------- Utilidades ----------------
@@ -93,6 +94,7 @@ async function loadAll() {
   S.meds = (await db.all('meds')).sort((a, b) => (a.order || 0) - (b.order || 0));
   S.week = (await db.get('misc', 'week')) || { id: 'week', checks: {}, top3: [{ t: '', s: '', d: false }, { t: '', s: '', d: false }, { t: '', s: '', d: false }], notes: '' };
   S.chat = (await db.get('misc', 'chat')) || { id: 'chat', display: [] };
+  await loadXp();
   await loadPage(todayKey());
   await loadWeekPages();
   await tidyTasks();
@@ -114,7 +116,7 @@ async function loadPage(key) {
   S.viewingPast = key !== todayKey();
 }
 
-function savePage() { S.page.updatedAt = Date.now(); return db.put('pages', S.page); }
+function savePage() { S.page.updatedAt = Date.now(); xpPage(S.page); return db.put('pages', S.page); }
 
 function objFor(store, id) {
   switch (store) {
@@ -251,6 +253,7 @@ async function markDose(key, day, value) {
   page.doses = page.doses || {};
   if (value) page.doses[key] = Date.now(); else delete page.doses[key];
   page.updatedAt = Date.now();
+  xpPage(page);
   await db.put('pages', page);
   if (value) await N.cancelIds([N.hashId(`fu:${key}:${day}`)]);
   else await syncDoses();
@@ -393,7 +396,7 @@ async function updatePinned(force = false) {
 async function completeCurrent(x) {
   const task = x.taskId ? S.projects.find(t => t.id === x.taskId) : null;
   if (task && x.stepIdx != null && task.steps[x.stepIdx]) {
-    task.steps[x.stepIdx].d = true;
+    task.steps[x.stepIdx].d = true; stepXp(task, x.stepIdx);
     let next = null;
     if (!nextStep(task)) next = await finishTask(task);
     else { await db.put('projects', task); await syncTopForTask(task); }
@@ -501,6 +504,10 @@ const ICONS = {
   ajustes: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   assistente: '<path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
   foco: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/>',
+  busca: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
+  pontos: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 2.6 3.9M16 6h2.5a2.5 2.5 0 0 1-2.6 3.9M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
+  play: '<path d="M7 5l12 7-12 7z" fill="currentColor"/>',
+  juntos: '<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.4"/><path d="M15.6 14.3A4.6 4.6 0 0 1 21 19"/>',
   semana: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   tarefas: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
   ideias: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/>',
@@ -559,9 +566,9 @@ function drawer() {
   return `<div class="scrim" onclick="A.menu(false)"></div><nav class="drawer" aria-label="Menu">
     <div class="who"><div class="avatar">${h((s.name || '?').trim().charAt(0).toUpperCase())}</div><div class="grow"><div style="font-weight:800;font-size:16px">${h(s.name || 'Bem-vindo')}</div><div class="small">${backupLine()}</div></div></div>
     <p class="grp">Dia a dia</p>
-    ${item('hoje', 'Hoje')}${item('remedios', 'Remédios e água', dz.length ? `${dz.filter(d => tk[d.key]).length}/${dz.length}` : '')}${item('rotinas', 'Rotinas')}${item('assistente', 'Assistente', '', 'A.openAssistant()')}${item('foco', 'Bloco de foco', focusCnt)}
+    ${item('hoje', 'Hoje')}${item('busca', 'Buscar', '', 'A.openSearch()')}${item('remedios', 'Remédios e água', dz.length ? `${dz.filter(d => tk[d.key]).length}/${dz.length}` : '')}${item('rotinas', 'Rotinas')}${item('assistente', 'Assistente', '', 'A.openAssistant()')}${item('foco', 'Bloco de foco', focusCnt)}
     <p class="grp">Organizar</p>
-    ${item('semana', 'Semana')}${item('tarefas', 'Prioridades', openProj)}${item('ideias', 'Ideias', ideas)}${item('habitos', 'Hábitos')}${item('lembretes', 'Lembretes', remToday ? `${remToday} hoje` : '')}
+    ${item('semana', 'Semana')}${item('tarefas', 'Prioridades', openProj)}${item('ideias', 'Ideias', ideas)}${item('habitos', 'Hábitos')}${item('lembretes', 'Lembretes', remToday ? `${remToday} hoje` : '')}${item('pontos', 'Pontos e recompensas', S.xp && xpOn() ? `nível ${xpLevel()}` : '')}
     <p class="grp">Juntos e aprender</p>
     ${item('agenda', 'Agenda da casa')}${item('guia', 'Guia · 100 estratégias', '', 'A.openGuide()')}${item('kit', 'Meu kit', favs, "A.openKit()")}
     <div class="foot">${item('ajustes', 'Ajustes')}<p class="small" style="margin:6px 14px 0">versão ${h(S.appVersion || VERSION)}</p></div>
@@ -587,7 +594,7 @@ async function maybeCheckUpdate(force = false) {
     if (info) S.update = info;
     if (hasUpdate() && S.settings.updateNotified !== S.update.version) {
       S.settings.updateNotified = S.update.version; await db.put('settings', S.settings);
-      await N.scheduleOnce('versao-nova', 'Versão nova do app', `A ${S.update.version} está disponível. Toque para ver as novidades.`, new Date(Date.now() + 2000));
+      await N.scheduleOnce('versao-nova', 'Versão nova do app', `A ${S.update.version} está disponível. Toque para ver as novidades.`, new Date(Date.now() + 2000), false);
     }
     if (force) toast(hasUpdate() ? `Versão ${S.update.version} disponível` : 'Você já está na última versão');
   } catch (e) { if (force) toast('Não consegui ver agora: ' + (e.message || e)); }
@@ -709,7 +716,7 @@ function moodWeek(size = 22) {
 function weekStats() {
   const days = lastDays(); const start = keyToDate(days[0]).getTime();
   const doneTasks = S.projects.filter(t => t.done && !t.skipped && (t.doneAt || 0) >= start);
-  let top = 0, topT = 0, doses = 0, used = 0, feitos = 0, moods = 0;
+  let top = 0, topT = 0, doses = 0, used = 0, feitos = 0, moods = 0, focusMin = 0, focusN = 0;
   const score = {};
   for (const k of days) {
     const pg = pageFor(k); if (!pg) continue; used++;
@@ -717,12 +724,13 @@ function weekStats() {
     topT += tt.length; top += tt.filter(t => t.d).length;
     doses += Object.values(pg.doses || {}).filter(Boolean).length;
     feitos += (pg.done || []).length; if (pg.mood) moods++;
+    focusMin += pg.focusMin || 0; focusN += pg.focusN || 0;
     score[k] = tt.filter(t => t.d).length + (pg.done || []).length;
   }
   for (const t of doneTasks) { const k = todayKey(new Date(t.doneAt)); score[k] = (score[k] || 0) + 1; }
   const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   const perDay = dosesForDay().length;
-  return { days, doneTasks, top, topT, doses, dosePct: perDay && used ? Math.min(100, Math.round(100 * doses / (perDay * used))) : null, feitos, moods, best: best && best[1] > 0 ? best[0] : null };
+  return { days, doneTasks, top, topT, doses, dosePct: perDay && used ? Math.min(100, Math.round(100 * doses / (perDay * used))) : null, feitos, moods, focusMin, focusN, best: best && best[1] > 0 ? best[0] : null };
 }
 const weekId = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 7) % 7)); return todayKey(d); }; // domingo da semana
 function showWeekOnHoje() {
@@ -741,6 +749,7 @@ function weekSummaryCard(onHoje = false) {
     <p class="hint mt">Últimos 7 dias, de ${f(a)} a ${f(z)}.</p>
     <div class="stats">${tile(st.doneTasks.length, st.doneTasks.length === 1 ? 'tarefa concluída' : 'tarefas concluídas')}${tile(st.topT ? `${st.top}/${st.topT}` : '0', 'das 3 do dia')}${st.dosePct !== null ? tile(st.dosePct + '%', 'remédios e água') : tile(st.doses, 'horários marcados')}${tile(st.feitos, 'no Feito hoje')}</div>
     ${st.moods ? `<p class="eyebrow" style="margin-top:14px">Humor</p>${moodWeek()}` : ''}
+    ${st.focusN ? `<p class="small mt" style="margin-bottom:0">Foco: <b>${fmtMin(st.focusMin)}</b> em ${st.focusN} ${st.focusN === 1 ? 'bloco' : 'blocos'}.</p>` : ''}
     ${best ? `<p class="small mt" style="margin-bottom:0">Dia que mais rendeu: <b>${best}</b>.</p>` : ''}
     ${st.doneTasks.length ? `<details class="mt"><summary style="font-size:14px">O que você concluiu (${st.doneTasks.length})</summary><div class="mt">${st.doneTasks.slice(0, 12).map(t => `<div class="small" style="padding:3px 0">${cdot(taskCat(t))}${h(t.title)}</div>`).join('')}</div></details>` : ''}
     ${hasAI() ? `<button class="${onHoje ? 'light' : 'ghost'} mt" style="width:100%" onclick="A.askWeek()">${svg('assistente', 16)} Resumo com a IA</button>` : ''}
@@ -751,7 +760,7 @@ async function scheduleWeekNotif() {
   if (S.settings.weekSummary === false) return N.cancelOnce('resumo-semana');
   const at = new Date(); at.setHours(19, 0, 0, 0); at.setDate(at.getDate() + ((7 - at.getDay()) % 7));
   if (at <= new Date()) at.setDate(at.getDate() + 7);
-  await N.scheduleOnce('resumo-semana', 'Sua semana', 'O resumo da semana está pronto. Toque para ver.', at);
+  await N.scheduleOnce('resumo-semana', 'Sua semana', 'O resumo da semana está pronto. Toque para ver.', at, false);
 }
 
 function badDay() {
@@ -928,9 +937,10 @@ function scrHoje() {
   if (!S.viewingPast && S.settings.moodOn !== false) b += moodStrip();
   b += p.bad ? badDay() : meuDiaCard();
   b += maisDoDia();
+  b += aiNudge();
   b += daySheet();
   const s = S.settings;
-  const right = s.driveUri ? `<button class="chip ${s.driveError ? 'warn' : ''}" onclick="A.tab('ajustes')">${svg('cloud', 14, 2.2)}${s.driveError ? 'Backup falhou' : 'Backup ok'}</button>` : '';
+  const right = `<button class="iconbtn" onclick="A.openSearch()" aria-label="Buscar em tudo">${svg('busca')}</button>` + (S.viewingPast ? '' : xpChip()) + (s.driveUri ? `<button class="chip ${s.driveError ? 'warn' : ''}" onclick="A.tab('ajustes')">${svg('cloud', 14, 2.2)}${s.driveError ? 'Backup falhou' : 'Backup ok'}</button>` : '');
   return [title, sub, b, { right }];
 }
 
@@ -968,11 +978,12 @@ function routineDetail(r) {
   const run = runOf(r);
   const back = `<button class="ghost mini" onclick="A.closeRoutine()">← Rotinas</button>`;
   if (S.editRoutine) {
-    const steps = r.steps.map((s, i) => `<div class="row" style="margin-bottom:6px"><input class="grow" type="text" value="${h(s)}" ${fieldAttr('routines', r.id, `steps.${i}`)}><button class="icon" onclick="A.removeStep(${i})">×</button></div>`).join('');
+    const mins = stepMins(r);
+    const steps = r.steps.map((s, i) => `<div class="row" style="margin-bottom:6px"><input class="grow" type="text" value="${h(s)}" ${fieldAttr('routines', r.id, `steps.${i}`)}><input type="number" inputmode="numeric" min="1" max="180" class="minin" value="${mins[i]}" aria-label="Minutos do passo ${i + 1}" onchange="A.setStepMin(${i}, this.value)"><span class="small">min</span><button class="icon" onclick="A.removeStep(${i})" aria-label="Tirar o passo ${i + 1}">×</button></div>`).join('');
     return [h(r.title), 'Editando', `${back}<div class="card mt"><h2>Nome</h2>${input('routines', r.id, 'title', r.title)}
       <h3>Quando</h3>${input('routines', r.id, 'when', r.when)}<h3>Duração</h3>${input('routines', r.id, 'duration', r.duration)}
       <h3>Gatilho</h3>${input('routines', r.id, 'trigger', r.trigger)}
-      <h3>Passos</h3>${steps}<button class="ghost mini" onclick="A.addStep()">+ passo</button>
+      <h3>Passos e minutos</h3><p class="small" style="margin-top:0">Os minutos valem para a rotina guiada.</p>${steps}<button class="ghost mini" onclick="A.addStep()">+ passo</button>
       <h3>Se travar</h3>${area('routines', r.id, 'ifStuck', r.ifStuck, '', 2)}
       <h3>Versão mínima</h3>${input('routines', r.id, 'minimal', r.minimal)}
       <button class="mt" onclick="A.doneEditing()">Pronto</button></div>`];
@@ -980,7 +991,9 @@ function routineDetail(r) {
   const steps = run.minimal
     ? check(!!run.checks[0], h(r.minimal), 'A.toggleStep(0)')
     : r.steps.map((s, i) => check(!!run.checks[i], h(s), `A.toggleStep(${i})`)).join('');
+  const tot = stepMins(r).reduce((a, b) => a + b, 0);
   const body = `${back}
+  ${r.steps.length ? `<div class="card mt"><button style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px" onclick="A.rplayStart()">${svg('play', 18)} Começar guiada · ${tot} min</button><p class="small mt" style="margin-bottom:0">Um passo por vez, com tempo e aviso no fim de cada um. Os minutos de cada passo mudam em Editar.</p></div>` : ''}
   <div class="card mt"><div class="small">${h(r.when)} · ${h(r.duration)}</div><div class="mt"><b>Gatilho:</b> ${h(r.trigger)}</div>
     <div class="pills mt"><button class="pill ${!run.minimal ? 'on' : ''}" onclick="A.setMinimal(false)">Completa</button><button class="pill ${run.minimal ? 'on' : ''}" onclick="A.setMinimal(true)">Versão mínima</button></div></div>
   <div class="card">${steps}<button class="mt" style="width:100%" onclick="A.finishRoutine()">Concluí a rotina</button></div>
@@ -1151,6 +1164,7 @@ async function syncTaskAlarm(t) {
 // Concluir: guarda, tira o aviso e, se repete, cria a próxima.
 async function finishTask(t, skipped = false) {
   t.done = true; t.doneAt = Date.now(); if (skipped) t.skipped = true;
+  if (!skipped) { xpSet('t:' + t.id, 10); celebrate(); }
   await db.put('projects', t); await syncTaskAlarm(t);
   const next = t.rep && !t.spawned ? await spawnNext(t) : null;
   await syncTopForTask(t);
@@ -1393,7 +1407,7 @@ function taskDetail(t) {
   const busy = S.taskBusy === t.id;
   const st = t.steps || [];
   const total = st.reduce((a, x) => a + (Number(x.est) || 0), 0);
-  let b = `<div class="card"><input type="text" class="title-input" value="${h(t.title)}" placeholder="Nome da tarefa" ${fieldAttr('projects', t.id, 'title')}>${q || taskCat(t) ? `<div class="mt">${q ? `<span class="tag ${q === 'q1' ? 'warn' : ''}">${QUADS[q][0]}</span> ` : ''}${taskCat(t) ? `<span class="tag">${cdot(taskCat(t))}${h(taskCat(t).name)}</span> ` : ''}${t.deadline ? `<span class="small">${h(whenText(t))}</span>` : ''}</div>` : ''}${t.from ? `<p class="small" style="margin:8px 0 0">Recebida de ${h(t.from)}</p>` : ''}</div>${stepper}`;
+  let b = `<div class="card"><input type="text" class="title-input" value="${h(t.title)}" placeholder="Nome da tarefa" ${fieldAttr('projects', t.id, 'title')}>${q || taskCat(t) ? `<div class="mt">${q ? `<span class="tag ${q === 'q1' ? 'warn' : ''}">${QUADS[q][0]}</span> ` : ''}${taskCat(t) ? `<span class="tag">${cdot(taskCat(t))}${h(taskCat(t).name)}</span> ` : ''}${t.deadline ? `<span class="small">${h(whenText(t))}</span>` : ''}</div>` : ''}${t.from ? `<p class="small" style="margin:8px 0 0">Recebida de ${h(t.from)}</p>` : ''}${t.pomos ? `<p class="small" style="margin:8px 0 0">${svg('foco', 14)} ${t.pomos} ${t.pomos === 1 ? 'bloco' : 'blocos'} de foco · ${fmtMin(t.focusMin || 0)}</p>` : ''}</div>${stepper}`;
 
   // 1. O quê
   if (ph === 'oque' || S.editWhat === t.id) {
@@ -1589,7 +1603,7 @@ async function execTool(name, input) {
       const t = findTask(input.tarefa); if (!t) throw new Error(`Não achei a tarefa "${input.tarefa}".`);
       const real = realSteps(t); const st = real[Number(input.passo) - 1];
       if (!st) throw new Error(`A tarefa tem ${real.length} passos.`);
-      st.d = input.feito !== false;
+      st.d = input.feito !== false; stepXp(t, t.steps.indexOf(st));
       if (!nextStep(t)) await finishTask(t);
       else { await db.put('projects', t); await syncTopForTask(t); }
       return t.done ? `Último passo feito: ${t.title} concluída.` : `Passo ${input.passo} de ${t.title} ${st.d ? 'feito' : 'desmarcado'}.`;
@@ -1672,16 +1686,21 @@ function loadFocus() {
 }
 function focusLeft() { const f = S.focus; if (!f) return 0; return f.phase === 'paused' ? f.left : f.phase === 'run' ? Math.max(0, f.end - Date.now()) : 0; }
 const focusRunning = () => !!(S.focus && ['run', 'paused'].includes(S.focus.phase));
-function focusSoundMode() { const s = S.settings; return s.focusSound === false ? 'mudo' : s.focusSilent ? 'alarme' : 'som'; }
+// Com o Não perturbe do foco ligado, o fim toca pelo alarme para conseguir passar por ele.
+function focusSoundMode() { const s = S.settings; return s.focusSound === false ? 'mudo' : s.focusSilent || s.focusDnd ? 'alarme' : 'som'; }
 async function scheduleFocusAlerts() {
   const f = S.focus;
+  syncDnd();
   if (!f || f.phase !== 'run') { await N.cancelFocus(); return; }
   const pausa = f.mode === 'pausa';
+  const longo = ((f.cycle || 0) + 1) % 4 === 0;
   let ok = false;
   try {
     ok = await N.scheduleFocus({
       end: f.end, warnAt: !pausa && S.settings.focusWarn && f.total > 5 * 60000 ? f.end - 2 * 60000 : null,
-      title: pausa ? 'Pausa acabou' : 'Bloco de foco terminou', body: pausa ? 'Bora para o próximo bloco?' : `${f.label ? f.label + '. ' : ''}Hora da pausa de 5 min.`, mode: focusSoundMode(),
+      title: pausa ? 'Pausa acabou' : 'Bloco de foco terminou', body: pausa ? 'Bora para o próximo bloco?' : `${f.label ? f.label + '. ' : ''}Hora da pausa de ${longo ? 15 : 5} min.`, mode: focusSoundMode(),
+      half: !pausa && (f.buddy || S.settings.focusHalf) && f.total >= 10 * 60000 ? f.end - f.total / 2 : null,
+      halfText: f.label ? `Metade do bloco. Segue em: ${f.label}` : '',
     });
   } catch (e) { ok = false; }
   if (S.focus) { S.focus.native = ok; saveFocus(); }
@@ -1723,13 +1742,14 @@ function focusTick() {
     if (left <= 0) { focusFinished(); return; }
     const el = document.getElementById('ftime'); if (el) el.textContent = fmtClock(left);
     const ring = document.getElementById('fring'); if (ring) ring.setAttribute('stroke-dasharray', `${(RING_C * left / f.total).toFixed(1)} ${RING_C.toFixed(1)}`);
+    const disc = document.getElementById('fdisc'); if (disc) disc.setAttribute('d', discPath(left / f.total));
   }, 1000);
 }
 function focusFinished() {
   const f = S.focus; clearInterval(A._fiv);
   if (!f) return;
   f.phase = f.mode === 'pausa' ? 'breakdone' : 'done'; f.answered = ''; f.rang = S.settings.focusSound !== false;
-  saveFocus();
+  saveFocus(); countFocus(f); syncDnd();
   try { if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 600]); } catch (e) { /* sem vibração */ }
   if (!f.native && S.settings.focusSound !== false) chime();
   if (S.tab !== 'foco') { if (!['assistente', 'ajustes'].includes(S.tab)) S.prevTab = S.tab; S.tab = 'foco'; S.drawer = false; }
@@ -1750,7 +1770,7 @@ function scrFoco() {
   const park = () => S.parkOpen
     ? `<div class="fcard"><p class="eyebrow">Estacionar ideia</p><div class="row mt"><input class="grow" type="text" id="parkInput" placeholder="A ideia, do jeito que vier" onkeydown="if(event.key==='Enter')A.parkSave()"><button class="fbtn" onclick="A.parkSave()">Guardar</button></div></div>`
     : `<button class="coral" style="width:100%;margin-top:14px;height:54px;display:flex;align-items:center;justify-content:center;gap:10px" onclick="A.parkToggle()">${svg('ideias', 20)}Estacionar uma ideia sem sair do foco</button>`;
-  const ring = (frac, center) => `<div class="ringwrap"><svg aria-hidden="true" width="240" height="240" viewBox="0 0 240 240"><circle cx="120" cy="120" r="104" fill="none" stroke="#1e3532" stroke-width="14"/><circle id="fring" cx="120" cy="120" r="104" fill="none" stroke="#6fc2b8" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(RING_C * frac).toFixed(1)} ${RING_C.toFixed(1)}" transform="rotate(-90 120 120)"/></svg><div class="center">${center}</div></div>`;
+  const ring = focusRing;
 
   if (!f) {
     const min = S.focusMin || 25;
@@ -1768,17 +1788,23 @@ function scrFoco() {
   if (f.phase === 'run' || f.phase === 'paused') {
     const left = focusLeft();
     const endAt = f.phase === 'run' ? hm(f.end) : '';
-    const sub = f.phase === 'paused' ? 'Pausado' : f.native ? `O sino toca às ${endAt}, mesmo com a tela apagada` : `Termina às ${endAt}`;
+    const sub = (f.phase === 'paused' ? 'Pausado' : f.native ? `O sino toca às ${endAt}, mesmo com a tela apagada` : `Termina às ${endAt}`) + (f.dnd && f.phase === 'run' && !pausa ? ' · Não perturbe ligado' : '');
     const center = `<p class="ftime" id="ftime">${fmtClock(left)}</p><p class="muted2" style="margin:0;font-size:14px">${f.phase === 'paused' ? 'pausado' : `de ${Math.round(f.total / 60000)} minutos`}</p>`;
+    const dial = discMode() ? `<div class="discwrap">${discSvg(f.total ? left / f.total : 0, 'fdisc')}</div><div class="dcenter">${center}</div>` : ring(f.total ? left / f.total : 0, center);
+    const buddy = pausa ? '' : f.buddy
+      ? `<div class="fcard row" style="gap:10px">${svg('juntos', 20)}<p class="grow" style="margin:0;font-size:14px">Focando junto. No fim, conte como foi.</p></div>`
+      : `<button class="outline" style="width:100%;margin-top:12px;height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusInvite()">${svg('juntos', 18)}Chamar alguém para focar junto</button>`;
     const mainBtn = f.phase === 'run'
       ? `<button class="fbtn main" onclick="A.focusPause()" aria-label="Pausar"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg></button>`
       : `<button class="fbtn main" onclick="A.focusResume()" aria-label="Continuar"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l12 7-12 7z"/></svg></button>`;
     return { raw: `<div class="focus">${head(pausa ? 'Pausa' : 'Bloco de foco', sub)}
       ${!pausa && f.label ? `<div class="fcard"><p class="eyebrow">Agora</p><p style="margin:4px 0 0;font-size:17px;font-weight:700">${h(f.label)}</p>${f.step ? `<p class="muted2" style="margin:2px 0 0;font-size:14px">${stepLabel(f)}: ${h(f.step)}</p>` : ''}${f.taskId && hasAI() && f.step ? `<button class="outline mini" style="margin-top:10px" onclick="A.taskStuck('${f.taskId}')" ${S.taskBusy ? 'disabled' : ''}>${S.taskBusy ? 'Quebrando…' : 'Travei neste passo'}</button>` : ''}</div>` : ''}
       ${pausa ? '<div class="fcard"><p class="eyebrow">Pausa</p><p style="margin:4px 0 0;font-size:15px">Levante, beba água, olhe longe. Sem tela nova.</p></div>' : ''}
-      ${ring(f.total ? left / f.total : 0, center)}
+      ${dial}
+      ${cycleDots(f)}
       <div class="fctl"><button class="outline side" onclick="A.focusPlus(5)">+5 min</button>${mainBtn}<button class="outline side" onclick="A.focusStop()">Parar</button></div>
-      ${pausa ? '' : prep(f.prep)}${pausa ? '' : park()}</div>` };
+      <button class="linkbtn" onclick="A.focusVisual()">${discMode() ? 'Ver como anel' : 'Ver como disco (tempo visual)'}</button>
+      ${buddy}${pausa ? '' : prep(f.prep)}${pausa ? '' : park()}</div>` };
   }
 
   if (f.phase === 'breakdone') {
@@ -1793,10 +1819,13 @@ function scrFoco() {
   const question = asks && !f.answered
     ? `<div class="fcard"><p class="eyebrow">${f.taskId && f.step ? `${stepLabel(f)} · terminou?` : 'Terminou?'}</p><p style="margin:4px 0 10px;font-size:16px;font-weight:700">${h(asks)}</p><div class="row"><button class="fbtn grow" onclick="A.focusDone(true)">Sim, feito</button><button class="outline grow" onclick="A.focusDone(false)">Ainda não</button></div></div>`
     : f.answered === 'sim' ? `<div class="fcard"><p style="margin:0;font-weight:700">${f.taskId ? (f.nextText ? `Anotado. Depois da pausa: ${h(f.nextText)}` : 'Tarefa concluída. Boa!') : 'Anotado em Feito hoje.'}</p></div>` : '';
+  const longo = longBreakNext(f);
   return { raw: `<div class="focus">${head('Bloco concluído', f.rang ? (f.native ? 'O sino tocou' : 'Tocou o sino') : '')}
     ${ring(1, `${svg('check', 34, 2.4)}<p style="margin:0;font-size:20px;font-weight:800">${mins} min feitos</p>`)}
+    ${cycleDots(f)}
     ${question}
-    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px"><button class="coral" style="height:54px;font-size:16px" onclick="A.focusBreak(5)">Começar pausa de 5 min</button>
+    ${f.buddy ? `<button class="outline" style="width:100%;margin-top:12px;height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusTell()">${svg('juntos', 18)}Contar como foi</button>` : ''}
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px"><button class="coral" style="height:54px;font-size:16px" onclick="A.focusBreak(${longo ? 15 : 5})">${longo ? '4 blocos feitos: pausa longa de 15 min' : 'Começar pausa de 5 min'}</button>
     <div class="row" style="gap:10px"><button class="outline grow" style="height:48px" onclick="A.focusPlus(5)">+5 min de foco</button><button class="outline grow" style="height:48px" onclick="A.focusStop()">Encerrar</button></div></div></div>` };
 }
 
@@ -1828,7 +1857,8 @@ function focusSettingsCard() {
   const soundOn = s.focusSound !== false;
   return `<div class="card" style="padding-top:6px;padding-bottom:6px"><h2 style="margin-top:10px">Bloco de foco</h2>
     <div class="setrow"><div class="lb">Som ao terminar</div>${sw(soundOn, 'Som ao terminar', "A.setFocusOpt('focusSound')")}</div>
-    ${soundOn ? `<div class="setrow"><div class="lb">Tocar no silencioso<div class="small" style="font-weight:500">Usa o volume de alarme</div></div>${sw(!!s.focusSilent, 'Tocar no silencioso', "A.setFocusOpt('focusSilent')")}</div>` : ''}
+    <div class="setrow"><div class="lb">Não perturbe durante o foco<div class="small" style="font-weight:500">Silencia os outros apps e desliga sozinho no fim. Ligações e exceções do seu Não perturbe continuam.</div></div>${sw(!!s.focusDnd, 'Não perturbe durante o foco', 'A.setFocusDnd()')}</div>
+    <div class="setrow"><div class="lb">Aviso na metade do bloco<div class="small" style="font-weight:500">Só vibra. Liga sozinho quando você chama alguém para focar junto.</div></div>${sw(!!s.focusHalf, 'Aviso na metade do bloco', "A.setFocusOpt('focusHalf')")}</div>
     <div class="setrow"><div class="lb">Aviso 2 min antes do fim<div class="small" style="font-weight:500">Só vibra</div></div>${sw(!!s.focusWarn, 'Aviso 2 min antes do fim', "A.setFocusOpt('focusWarn')")}</div>
     <div class="setrow"><div class="lb">Som: sino</div><button class="ghost mini" onclick="A.testSound()">Testar</button></div></div>`;
 }
@@ -1873,6 +1903,7 @@ function scrAjustes() {
   const out = `
   <button class="ghost" style="width:100%;margin-bottom:12px" onclick="A.startOnboarding()">Configuração guiada (refazer as perguntas)</button>
   ${appearanceCard()}
+  ${loudCard()}
   ${focusSettingsCard()}
   ${pinSettingsCard()}
   ${prioSettingsCard()}
@@ -1882,8 +1913,9 @@ function scrAjustes() {
   <div class="card"><h2>Sobre mim</h2><p class="hint">O assistente lê este texto para entender sua rotina. Só sai do celular quando você usa o assistente.</p>${area('settings', 'main', 'about', s.about || '', 'Trabalho, família, horários, o que mais te trava…', 6)}</div>
   <div class="card"><h2>Assistente de IA</h2>
     <div class="pills">${Object.entries(PROVIDERS).map(([k, v]) => `<button class="pill ${keyStore.provider() === k ? 'on' : ''}" onclick="A.setProvider('${k}')">${v.label}</button>`).join('')}</div>
-    <p class="hint mt">${keyStore.get() ? 'Chave salva neste celular.' : 'Sem chave. Toque no microfone do meio para conectar.'} ${h(PROVIDERS[keyStore.provider()].billing)}</p>
+    <p class="hint mt">${keyStore.get() ? 'Chave salva neste celular.' : 'Sem chave ainda. Leva uns 2 minutos:'} ${h(PROVIDERS[keyStore.provider()].billing)}</p>
     ${PROVIDERS[keyStore.provider()].warning ? `<div class="alert" style="margin-bottom:10px">${h(PROVIDERS[keyStore.provider()].warning)}</div>` : ''}
+    ${keyStore.get() ? '' : `<div id="keySetup" style="margin-bottom:6px">${keySetup(PROVIDERS[keyStore.provider()])}</div>`}
     <h3>Tom do assistente</h3><div class="pills">${TONES.map(([k, l]) => `<button class="pill ${(s.aiTone || 'direto') === k ? 'on' : ''}" onclick="A.setTone('${k}')">${l}</button>`).join('')}</div>
     <h3>Modelo</h3><select onchange="A.setModel(this.value)">${modelOptions().map(([v, l]) => `<option value="${h(v)}" ${keyStore.model() === v ? 'selected' : ''}>${h(l)}</option>`).join('')}</select>
     ${keyStore.provider() === 'gemini' && keyStore.get() ? '<button class="ghost mini mt" onclick="A.loadModels()">Carregar modelos da minha conta</button>' : ''}
@@ -2027,6 +2059,7 @@ function scrOnboarding() {
         <p class="small mt">${h(P.billing)}</p>${P.warning ? `<div class="alert" style="margin-bottom:10px">${h(P.warning)}</div>` : ''}
         ${has ? '<p><b>Chave salva neste celular.</b></p>' : `<ol class="small" style="padding-left:18px;margin:0 0 10px">${P.howTo.map(x => `<li>${h(x)}</li>`).join('')}</ol>${keyLink(P)}
         <input class="mt" type="text" id="apiKey" placeholder="${h(P.keyHint)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="mt" style="width:100%" onclick="A.saveKey()">Salvar chave</button>`}
+        ${has ? '' : '<p class="small mt" style="margin-bottom:0">Se pular, a chave fica em Ajustes › Assistente de IA e no microfone do meio, com este mesmo passo a passo.</p>'}
         <div class="row mt">${i > 1 ? '<button class="ghost" onclick="A.onbBack()">Voltar</button>' : ''}<div class="grow"></div><button ${has ? '' : 'class="ghost"'} onclick="A.onbNext()">${has ? 'Próximo' : 'Pular por agora'}</button></div></div>`;
       break;
     }
@@ -2047,9 +2080,324 @@ function scrOnboarding() {
 }
 
 // ---------------- Render ----------------
+// ---------------- 2.0: tocar no silencioso, Não perturbe, pomodoro, pontos, rotina guiada, busca ----------------
+
+// ----- Tocar no silencioso (volume de alarme) -----
+function applyLoud() { N.setLoud({ dose: !!S.settings.loudDose, rem: !!S.settings.loudRem }); }
+async function refreshAlarmVol() {
+  if (!N.isNative()) return;
+  const v = await N.alarmVolume();
+  if (JSON.stringify(v) !== JSON.stringify(S.alarmVol)) { S.alarmVol = v; if (S.tab === 'ajustes') render(); }
+}
+function loudCard() {
+  const s = S.settings, v = S.alarmVol;
+  const row = (k, label, small) => `<div class="setrow"><div class="lb">${label}${small ? `<div class="small" style="font-weight:500">${small}</div>` : ''}</div>${sw(!!s[k], label, `A.setLoud('${k}')`)}</div>`;
+  let vol = '';
+  if (!N.isNative()) vol = '<p class="small" style="margin:8px 0">No app Android, o volume de alarme aparece aqui.</p>';
+  else if (v && v.max) {
+    const pct = Math.round(100 * v.vol / v.max);
+    vol = pct === 0
+      ? `<div class="alert" style="margin:8px 0">O volume de alarme está zerado, então nada toca.<button class="mini" style="display:block;margin-top:8px" onclick="A.raiseAlarm()">Subir para 70%</button></div>`
+      : `<div class="setrow"><div class="lb">Volume de alarme: ${pct}%${pct < 40 ? '<div class="small" style="font-weight:500">Baixo: pode não dar para ouvir</div>' : ''}</div>${pct < 70 ? '<button class="ghost mini" onclick="A.raiseAlarm()">Subir para 70%</button>' : ''}</div>`;
+  }
+  return `<div class="card" id="loudCard" style="padding-top:6px;padding-bottom:12px"><h2 style="margin-top:10px">Tocar no silencioso</h2>
+    <p class="hint" style="margin-bottom:4px">Usa o volume de alarme: toca mesmo com o celular no silencioso ou no vibrar.</p>
+    ${row('loudDose', 'Remédios e água')}
+    ${row('loudRem', 'Tarefas, lembretes e rotinas')}
+    ${row('focusSilent', 'Fim do foco e dos passos da rotina')}
+    ${vol}
+    <div class="row mt"><button class="ghost grow" onclick="A.testLoud('dose')">Testar remédio</button><button class="ghost grow" onclick="A.testLoud('rem')">Testar lembrete</button></div>
+    ${s.loudDose || s.loudRem || s.focusSilent ? '<p class="small mt" style="margin-bottom:0">Com o Não perturbe ligado, toca se ele deixar os alarmes passarem (é o padrão do Android).</p>' : ''}</div>`;
+}
+
+// ----- Não perturbe durante o foco -----
+async function syncDnd() {
+  if (!N.isNative() || !S.settings.focusDnd) return;
+  const f = S.focus;
+  if (f && f.mode !== 'pausa' && f.phase === 'run') {
+    const ok = await N.dndOn(f.end);
+    if (f === S.focus) { f.dnd = ok; saveFocus(); }
+  } else await N.dndOff();
+}
+
+// ----- Pomodoro: blocos e minutos de foco -----
+const fmtMin = m => (m >= 60 ? `${Math.floor(m / 60)}h${pad(m % 60)}` : `${m} min`);
+async function countFocus(f) {
+  if (!f || f.counted || f.mode === 'pausa') return;
+  f.counted = true; f.cycle = (f.cycle || 0) + 1; saveFocus();
+  const mins = Math.max(1, Math.round(f.total / 60000));
+  const k = todayKey();
+  const pg = S.page.id === k ? S.page : { ...newPage(k), ...((await db.get('pages', k)) || {}) };
+  pg.focusN = (pg.focusN || 0) + 1; pg.focusMin = (pg.focusMin || 0) + mins; pg.updatedAt = Date.now();
+  xpPage(pg); await db.put('pages', pg); S.weekPages[k] = pg;
+  const t = f.taskId && S.projects.find(x => x.id === f.taskId);
+  if (t) { t.pomos = (t.pomos || 0) + 1; t.focusMin = (t.focusMin || 0) + mins; await db.put('projects', t); }
+}
+const longBreakNext = f => ((f.cycle || 0) % 4 === 0 && (f.cycle || 0) > 0);
+function cycleDots(f) {
+  const c = f.cycle || 0;
+  const running = f.mode !== 'pausa' && (f.phase === 'run' || f.phase === 'paused');
+  const filled = running ? c % 4 : (c % 4 || (c ? 4 : 0));
+  return `<div class="cycle" aria-label="${running ? `Bloco ${filled + 1} de 4` : `${filled} de 4 blocos feitos`}">${[0, 1, 2, 3].map(i => `<i class="${i < filled ? 'on' : running && i === filled ? 'cur' : ''}"></i>`).join('')}</div>`;
+}
+
+// ----- Tempo visual (disco que diminui, estilo Time Timer) -----
+function discPath(frac) {
+  const r = 104, c = 120;
+  frac = Math.max(0, Math.min(1, frac || 0));
+  if (frac >= 0.9995) return `M${c} ${c - r}A${r} ${r} 0 1 0 ${c} ${c + r}A${r} ${r} 0 1 0 ${c} ${c - r}Z`;
+  if (frac <= 0.0005) return 'M120 120Z';
+  const a = frac * 2 * Math.PI;
+  return `M${c} ${c}L${c} ${c - r}A${r} ${r} 0 ${frac > 0.5 ? 1 : 0} 0 ${(c - r * Math.sin(a)).toFixed(2)} ${(c - r * Math.cos(a)).toFixed(2)}Z`;
+}
+function discSvg(frac, id) {
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const a = i * Math.PI / 6, s = Math.sin(a), c = Math.cos(a);
+    return `<line x1="${(120 + 110 * s).toFixed(1)}" y1="${(120 - 110 * c).toFixed(1)}" x2="${(120 + 117 * s).toFixed(1)}" y2="${(120 - 117 * c).toFixed(1)}" stroke="#4d6e69" stroke-width="${i % 3 ? 2 : 4}" stroke-linecap="round"/>`;
+  }).join('');
+  return `<svg aria-hidden="true" width="240" height="240" viewBox="0 0 240 240"><circle cx="120" cy="120" r="104" fill="#1e3532"/>${ticks}<path id="${id}" d="${discPath(frac)}" fill="#e8785f"/><circle cx="120" cy="120" r="9" fill="#0f1716"/></svg>`;
+}
+function focusRing(frac, center) {
+  return `<div class="ringwrap"><svg aria-hidden="true" width="240" height="240" viewBox="0 0 240 240"><circle cx="120" cy="120" r="104" fill="none" stroke="#1e3532" stroke-width="14"/><circle id="fring" cx="120" cy="120" r="104" fill="none" stroke="#6fc2b8" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(RING_C * frac).toFixed(1)} ${RING_C.toFixed(1)}" transform="rotate(-90 120 120)"/></svg><div class="center">${center}</div></div>`;
+}
+const discMode = () => S.settings.focusVisual === 'disco';
+
+// ----- Rotina guiada (um passo por vez, com tempo) -----
+const RPLAY_KEY = 'rplay_state';
+function saveRplay() { try { if (S.rplay) localStorage.setItem(RPLAY_KEY, JSON.stringify(S.rplay)); else localStorage.removeItem(RPLAY_KEY); } catch (e) { /* sem armazenamento */ } }
+function loadRplay() {
+  try { S.rplay = JSON.parse(localStorage.getItem(RPLAY_KEY) || 'null'); } catch (e) { S.rplay = null; }
+  if (S.rplay && !S.routines.find(r => r.id === S.rplay.rid)) S.rplay = null;
+}
+function stepMins(r) {
+  const n = r.steps.length || 1;
+  const m = String(r.duration || '').match(/\d+/);
+  const per = m ? Math.max(1, Math.round(Number(m[0]) / n)) : 3;
+  return r.steps.map((_, i) => { const v = Number((r.stepMin || [])[i]); return v > 0 ? Math.round(v) : per; });
+}
+const rpLeft = p => p.stepEnd - Date.now();
+async function rpSchedule() {
+  const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid);
+  if (!p || !r || p.phase !== 'run') { await N.cancelRoutineStep(); return; }
+  let ok = false;
+  if (S.settings.focusSound !== false) {
+    try { ok = await N.scheduleRoutineStep({ at: p.stepEnd, title: `Tempo do passo: ${r.steps[p.i]}`, body: `${r.title}. Toque em Feito quando terminar.`, mode: focusSoundMode() }); } catch (e) { ok = false; }
+  }
+  if (S.rplay === p) { p.native = ok; saveRplay(); }
+}
+function rpTick() {
+  clearInterval(A._riv);
+  if (!S.rplay || S.rplay.phase !== 'run') return;
+  A._riv = setInterval(() => {
+    const p = S.rplay;
+    if (!p || p.phase !== 'run') { clearInterval(A._riv); return; }
+    const left = rpLeft(p);
+    const el = document.getElementById('rtime');
+    if (el) { el.textContent = left >= 0 ? fmtClock(left) : '+' + fmtClock(-left); el.classList.toggle('over', left < 0); }
+    const d = document.getElementById('rdisc'); if (d) d.setAttribute('d', discPath(Math.max(0, left) / p.total));
+    if (left <= 0 && !p.rang) {
+      p.rang = true; saveRplay();
+      try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) { /* sem vibração */ }
+      if (!p.native && S.settings.focusSound !== false) chime();
+      const o = document.getElementById('rover'); if (o) o.hidden = false;
+    }
+  }, 1000);
+}
+async function logRoutine(r, minimal) {
+  const log = { id: uid(), routineId: r.id, at: Date.now(), minimal: !!minimal };
+  S.logs.push(log); await db.put('logs', log);
+  r.run = { date: todayKey(), checks: [], minimal: false }; await db.put('routines', r);
+  xpSet('r:' + log.id, minimal ? 5 : 10);
+  celebrate();
+  return log;
+}
+function scrRotinaPlay() {
+  const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid);
+  if (!p || !r) { S.rplay = null; saveRplay(); S.tab = 'rotinas'; return scrRotinas(); }
+  const head = sub => `<header class="appbar"><button class="iconbtn" onclick="A.rplayExit()" aria-label="Sair da rotina guiada">${svg('close')}</button><div class="ttl"><h1>${h(r.title)}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div></header>`;
+  if (p.phase === 'done') {
+    const took = Math.max(1, Math.round((p.doneAt - p.startedAt) / 60000));
+    return { raw: `<div class="focus">${head('Rotina concluída')}
+      ${focusRing(1, `${svg('check', 34, 2.4)}<p style="margin:0;font-size:20px;font-weight:800">Feita em ${took} min</p>`)}
+      <p class="muted2" style="text-align:center;margin-top:16px">${p.doneN} de ${r.steps.length} passos feitos${p.skipped.length ? `, ${p.skipped.length} ${p.skipped.length === 1 ? 'pulado' : 'pulados'}` : ''}.</p>
+      <button class="fbtn" style="width:100%;margin-top:14px;height:54px;font-size:16px" onclick="A.rplayClose()">Voltar para a rotina</button></div>` };
+  }
+  const mins = stepMins(r);
+  const left = rpLeft(p), over = left < 0;
+  const rest = mins.slice(p.i + 1).reduce((a, b) => a + b, 0);
+  const endAt = hm(Math.max(Date.now(), p.stepEnd) + rest * 60000);
+  const after = r.steps.slice(p.i + 1).map((s, k) => `<div class="rnext"><span>${h(s)}</span><span class="muted2">${mins[p.i + 1 + k]} min</span></div>`).join('');
+  return { raw: `<div class="focus">${head(`Passo ${p.i + 1} de ${r.steps.length} · termina por volta de ${endAt}`)}
+    <div class="rdots">${r.steps.map((_, k) => `<i class="${k < p.i ? (p.skipped.includes(k) ? 'skip' : 'on') : k === p.i ? 'cur' : ''}"></i>`).join('')}</div>
+    <p class="rstep">${h(r.steps[p.i])}</p>
+    <div class="discwrap">${discSvg(Math.max(0, left) / p.total, 'rdisc')}</div>
+    <p class="ftime rtime ${over ? 'over' : ''}" id="rtime">${over ? '+' + fmtClock(-left) : fmtClock(left)}</p>
+    <p class="muted2" id="rover" ${over ? '' : 'hidden'} style="text-align:center;margin:4px 0 0">Passou do tempo, sem problema. Toque em Feito quando terminar.</p>
+    <div class="fctl"><button class="outline side" onclick="A.rplayPlus()">+1 min</button><button class="fbtn main" onclick="A.rplayDone()" aria-label="Feito, próximo passo">${svg('check', 30, 2.6)}</button><button class="outline side" onclick="A.rplaySkip()">Pular</button></div>
+    ${after ? `<p class="eyebrow" style="margin:22px 4px 0">Depois</p><div class="fcard" style="padding:4px 16px">${after}</div>` : '<p class="muted2" style="text-align:center;margin-top:18px">Último passo.</p>'}
+  </div>` };
+}
+
+// ----- Pontos, nível, sequência e recompensas -----
+const XP_RULES = [['Tarefa concluída', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
+const DEFAULT_REWARDS = [['Um episódio de série', 40], ['Café ou doce especial', 60], ['Uma hora de jogo sem culpa', 100]];
+const xpLvlAt = n => 50 * n * (n - 1); // pontos para chegar ao nível n: 0, 100, 300, 600, 1000…
+const xpOn = () => S.settings.xpOn !== false;
+async function loadXp() {
+  S.xp = (await db.get('misc', 'xp')) || { id: 'xp', ev: {}, base: 0, spent: [], rewards: DEFAULT_REWARDS.map(([name, cost]) => ({ id: uid(), name, cost })) };
+  S.xp.ev = S.xp.ev || {}; S.xp.spent = S.xp.spent || []; S.xp.rewards = S.xp.rewards || [];
+  const cut = todayKey(new Date(Date.now() - 120 * DAY));
+  let moved = false;
+  for (const [k, [d, p]] of Object.entries(S.xp.ev)) if (d < cut) { S.xp.base = (S.xp.base || 0) + p; delete S.xp.ev[k]; moved = true; }
+  if (moved) await db.put('misc', S.xp);
+}
+function xpTotal() { let t = S.xp.base || 0; for (const k in S.xp.ev) t += S.xp.ev[k][1]; return t; }
+function xpLevel(t = xpTotal()) { let n = 1; while (xpLvlAt(n + 1) <= t) n++; return n; }
+function xpCoins() { return xpTotal() - S.xp.spent.reduce((a, b) => a + (b.cost || 0), 0); }
+function xpSet(key, pts, day = todayKey(), silent = false) {
+  if (!S.xp) return 0;
+  const cur = S.xp.ev[key] ? S.xp.ev[key][1] : 0;
+  if (cur === pts) return 0;
+  const before = xpLevel();
+  if (pts) S.xp.ev[key] = [day, pts]; else delete S.xp.ev[key];
+  later('xp', () => db.put('misc', S.xp), 300);
+  const diff = pts - cur;
+  if (!silent && xpOn()) {
+    const after = xpLevel();
+    if (after > before) { celebrate(); setTimeout(() => toast(`Nível ${after}! Bora que tá rendendo.`, 3200), 60); }
+    else if (diff > 0) popPoints(diff);
+  }
+  return diff;
+}
+function pagePts(p) {
+  const tops = (p.top3 || []).filter(t => (t.t || '').trim() && t.d).length;
+  const doses = Object.values(p.doses || {}).filter(Boolean).length;
+  const body = Object.values(p.body || {}).filter(Boolean).length;
+  const items = (p.items || []).filter(x => x.d).length;
+  return 5 * tops + 2 * doses + 2 * Math.min(20, (p.done || []).length) + body + (p.mood ? 1 : 0) + 10 * (p.focusN || 0) + 2 * items;
+}
+function xpPage(p, silent = false) { if (S.xp && p && p.id) xpSet('dia:' + p.id, pagePts(p), p.id, silent); }
+const stepXp = (t, i) => xpSet(`s:${t.id}:${i}`, t.steps[i] && t.steps[i].d ? 2 : 0);
+function xpStreak() {
+  const per = {};
+  for (const k in S.xp.ev) { const [d, p] = S.xp.ev[k]; per[d] = (per[d] || 0) + p; }
+  const d = new Date();
+  if (!(per[todayKey(d)] > 0)) d.setDate(d.getDate() - 1);
+  let n = 0, miss = 0;
+  for (let i = 0; i < 130; i++) {
+    if (per[todayKey(d)] > 0) { n++; miss = 0; } else if (++miss >= 2) break;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+}
+function popPoints(n) {
+  let el = document.getElementById('ptspop');
+  if (!el) { el = document.createElement('div'); el.id = 'ptspop'; el.className = 'ptspop'; el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  el._sum = (el.classList.contains('show') ? (el._sum || 0) : 0) + n;
+  el.textContent = `+${el._sum} ${el._sum === 1 ? 'ponto' : 'pontos'}`;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('show'), 1700);
+}
+// Comemoração: confete rápido (desliga sozinho se o celular pede menos animação).
+function celebrate() {
+  if (S.settings.celebrate === false) return;
+  try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) { /* segue */ }
+  const box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true');
+  const colors = ['#6fc2b8', '#f2b84b', '#e8785f', '#8fb3ff', '#c99be0'];
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement('i');
+    s.style.left = (4 + Math.random() * 92) + '%'; s.style.background = colors[i % colors.length];
+    s.style.animationDelay = (Math.random() * 0.25).toFixed(2) + 's';
+    s.style.setProperty('--x', Math.round(Math.random() * 140 - 70) + 'px');
+    s.style.setProperty('--r', Math.round(Math.random() * 720 - 360) + 'deg');
+    box.appendChild(s);
+  }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 1900);
+}
+function xpChip() {
+  if (!S.xp || !xpOn()) return '';
+  const lv = xpLevel(), st = xpStreak();
+  return `<button class="chip xpchip" onclick="A.tab('pontos')" aria-label="Nível ${lv}${st > 1 ? `, ${st} dias seguidos` : ''}. Pontos e recompensas">${svg('pontos', 14, 2.2)}${lv}${st > 1 ? `<span class="xpst">· ${st}d</span>` : ''}</button>`;
+}
+function scrPontos() {
+  const t = xpTotal(), lv = xpLevel(t), a = xpLvlAt(lv), b = xpLvlAt(lv + 1), coins = xpCoins(), st = xpStreak();
+  const today = Object.values(S.xp.ev).filter(([d]) => d === todayKey()).reduce((s, [, p]) => s + p, 0);
+  const tile = (n, l) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`;
+  const rewards = S.xp.rewards.map(r => `<div class="list-item"><div class="grow"><b>${h(r.name)}</b><div class="small">${r.cost} moedas</div></div><button class="mini" ${coins < r.cost ? 'disabled' : ''} onclick="A.redeem('${r.id}')">Resgatar</button><button class="icon" onclick="A.removeReward('${r.id}')" aria-label="Tirar ${h(r.name)}">×</button></div>`).join('') || '<p class="small">Nenhuma ainda. Crie a primeira abaixo.</p>';
+  const spent = S.xp.spent.slice(-5).reverse().map(x => `<div class="small" style="padding:3px 0">${new Date(x.at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · ${h(x.name)} (−${x.cost})</div>`).join('');
+  const body = `<div class="card"><div class="row"><div class="lvl">${lv}</div><div class="grow"><b style="font-size:18px">Nível ${lv}</b><div class="small">${t} pontos · faltam ${b - t} para o nível ${lv + 1}</div><span class="xpbar big"><i style="width:${Math.round(100 * (t - a) / (b - a))}%"></i></span></div></div>
+      <div class="stats3 mt">${tile(today, 'pontos hoje')}${tile(st, st === 1 ? 'dia seguido' : 'dias seguidos')}${tile(coins, 'moedas')}</div>
+      <p class="small mt" style="margin-bottom:0">Um dia sem nada não quebra a sequência; dois seguidos, sim. Ninguém perde ponto.</p></div>
+    <div class="card"><h2>Recompensas</h2><p class="hint">Você escolhe o prêmio e o preço. Cada ponto vira uma moeda, e gastar não tira nível.</p>${rewards}
+      <div class="row mt"><input class="grow" type="text" id="rwName" placeholder="Ex.: pedir uma pizza" onkeydown="if(event.key==='Enter')A.addReward()"><input type="number" id="rwCost" inputmode="numeric" min="1" step="5" value="50" style="width:78px" aria-label="Preço em moedas"><button onclick="A.addReward()" aria-label="Adicionar recompensa">+</button></div>
+      ${spent ? `<h3>Últimos resgates</h3>${spent}` : ''}</div>
+    <div class="card"><h2>Como ganhar pontos</h2>${XP_RULES.map(([l, p]) => `<div class="row small" style="padding:3px 0"><span class="grow">${l}</span><b>+${p}</b></div>`).join('')}
+      <div class="setrow mt"><div class="lb">Mostrar pontos no Hoje</div>${sw(xpOn(), 'Mostrar pontos no Hoje', 'A.toggleXp()')}</div>
+      <div class="setrow"><div class="lb">Comemorar ao concluir<div class="small" style="font-weight:500">Confete rápido</div></div>${sw(S.settings.celebrate !== false, 'Comemorar ao concluir', "A.setFocusOpt('celebrate')")}</div></div>`;
+  return ['Pontos e recompensas', `Nível ${lv} · ${coins} moedas`, body, { back: 'A.back()' }];
+}
+
+// ----- Busca em tudo -----
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function snip(text, q) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  const i = norm(t).indexOf(q);
+  if (i < 0) return h(t.slice(0, 90));
+  const a = Math.max(0, i - 30), z = Math.min(t.length, i + q.length + 60);
+  return (a > 0 ? '…' : '') + h(t.slice(a, i)) + '<mark>' + h(t.slice(i, i + q.length)) + '</mark>' + h(t.slice(i + q.length, z)) + (z < t.length ? '…' : '');
+}
+function searchResults(raw) {
+  const q = norm(String(raw || '').trim());
+  if (q.length < 2) return '<p class="hint" style="margin:8px 4px">Digite pelo menos 2 letras.</p>';
+  const has = s => norm(s).includes(q);
+  const row = (act, main, sub) => `<button class="sres" onclick="${act}"><span class="sm">${main}</span>${sub ? `<span class="small">${sub}</span>` : ''}</button>`;
+  const groups = [];
+  const add = (title, items) => { if (items.length) groups.push(`<div class="card"><h2>${title} <span class="small">${items.length > 8 ? `8 de ${items.length}` : items.length}</span></h2>${items.slice(0, 8).join('')}</div>`); };
+  add('Tarefas', S.projects.filter(t => has(t.title) || has(t.place) || has(t.what) || (t.steps || []).some(s => has(s.t)))
+    .sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))
+    .map(t => { const st = !has(t.title) && (t.steps || []).find(s => has(s.t)); return row(`A.openProject('${t.id}')`, has(t.title) ? snip(t.title, q) : h(t.title), st ? 'Passo: ' + snip(st.t, q) : t.done ? 'Concluída' : h(whenText(t) || '')); }));
+  add('Lembretes', S.reminders.filter(r => !r.taskId && has(r.title)).map(r => row("A.tab('lembretes')", snip(r.title, q), r.at ? h(dueLabel(r.at)) : '')));
+  add('Ideias', S.ideas.filter(i => has(i.t)).map(i => row("A.tab('ideias')", snip(i.t, q), i.done ? 'Já usada' : '')));
+  add('Remédios', S.meds.filter(m => has(m.name) || has(m.note)).map(m => row("A.tab('remedios')", snip(m.name, q), '')));
+  const pages = (S.search && S.search.pages) || [];
+  add('Páginas dos dias', pages.map(p => {
+    const texts = [p.dump, p.good, p.badTask, ...(p.done || []), ...(p.top3 || []).map(t => t.t), ...(p.items || []).map(x => x.t)];
+    const hit = texts.find(x => x && has(x));
+    return hit ? row(`A.searchPage('${p.id}')`, h(fmtDateKey(p.id)), snip(hit, q)) : null;
+  }).filter(Boolean));
+  add('Rotinas', S.routines.filter(r => has(r.title) || r.steps.some(has)).map(r => { const st = !has(r.title) && r.steps.find(has); return row(`A.searchRoutine('${r.id}')`, has(r.title) ? snip(r.title, q) : h(r.title), st ? 'Passo: ' + snip(st, q) : ''); }));
+  add('Guia', CHAPTERS.flatMap(ch => ch.items).filter(([, t, txt]) => has(t) || has(txt)).map(([n, t, txt]) => row('A.searchGuide()', `${n}. ${has(t) ? snip(t, q) : h(t)}`, has(t) ? '' : snip(txt, q))));
+  return groups.join('') || `<p class="hint" style="margin:8px 4px">Nada encontrado para "${h(raw)}".</p>`;
+}
+function scrBusca() {
+  if (!S.search) S.search = { q: '', pages: null };
+  if (!S.search.pages) {
+    S.search.pages = [];
+    db.all('pages').then(ps => {
+      S.search.pages = ps.sort((a, b) => (a.id < b.id ? 1 : -1));
+      const el = document.getElementById('sres'); if (el && S.tab === 'busca' && S.search.q.trim()) el.innerHTML = searchResults(S.search.q);
+    });
+  }
+  const empty = '<p class="hint" style="margin:8px 4px">Procura em tarefas e passos, lembretes, ideias, remédios, nos dias anteriores (descarrego, feito e prioridades), nas rotinas e no guia.</p>';
+  const body = `<input type="search" id="searchInput" class="search-input" placeholder="Digite uma palavra" value="${h(S.search.q)}" oninput="A.searchSet(this.value)" autocomplete="off" enterkeyhint="search">
+    <div id="sres" class="mt">${S.search.q.trim() ? searchResults(S.search.q) : empty}</div>`;
+  return ['Buscar', 'Em tudo do app', body, { back: 'A.back()' }];
+}
+
+// ----- Assistente: deixar a chave sempre achável -----
+function keySetup(P) {
+  return `<ol class="small" style="padding-left:18px;margin:0 0 10px">${P.howTo.map(x => `<li>${h(x)}</li>`).join('')}</ol>${keyLink(P)}
+    <input class="mt" type="text" id="apiKey" placeholder="${h(P.keyHint)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="mt" style="width:100%" onclick="A.saveKey()">Salvar chave</button>`;
+}
+function aiNudge() {
+  if (hasAI() || S.viewingPast || !S.settings.name || (S.settings.aiNudgeUntil || 0) > Date.now()) return '';
+  return `<div class="card ainudge row"><span class="nudgeic">${svg('assistente', 20)}</span><div class="grow"><b>Ligar o assistente de IA</b><div class="small" style="margin:0">Grátis com o Gemini, leva 2 min</div></div><button class="mini" onclick="A.openAssistant()">Conectar</button><button class="icon" onclick="A.aiNudgeLater()" aria-label="Agora não">×</button></div>`;
+}
+
 const SCREENS = {
   hoje: scrHoje, remedios: scrRemedios, rotinas: scrRotinas, assistente: scrAssistente, guia: scrGuia, ajustes: scrAjustes, foco: scrFoco,
   semana: scrSemana, tarefas: scrTarefas, ideias: scrIdeias, habitos: scrHabitos, lembretes: scrLembretes, agenda: scrAgenda,
+  rotina: scrRotinaPlay, pontos: scrPontos, busca: scrBusca,
 };
 let lastBars = null;
 function applyTheme() {
@@ -2057,7 +2405,7 @@ function applyTheme() {
   const root = document.documentElement;
   if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
   const sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const dark = S.tab === 'foco' || t === 'escuro' || (t === 'auto' && sysDark);
+  const dark = S.tab === 'foco' || S.tab === 'rotina' || t === 'escuro' || (t === 'auto' && sysDark);
   if (dark !== lastBars) { lastBars = dark; N.setBars(dark); }
 }
 function render() {
@@ -2067,7 +2415,7 @@ function render() {
   if (S.onb) { document.body.className = 'nonav'; app.innerHTML = scrOnboarding(); return; }
   const out = (SCREENS[S.tab] || scrHoje)();
   if (out.raw) {
-    document.body.className = S.tab === 'foco' ? 'focus-bg' : 'nonav';
+    document.body.className = S.tab === 'foco' || S.tab === 'rotina' ? 'focus-bg' : 'nonav';
     app.innerHTML = out.raw + drawer() + incomingSheet();
     return;
   }
@@ -2083,9 +2431,10 @@ function render() {
 const A = {
   tab(t) {
     if (t === 'kit') return A.openKit();
-    const over = ['assistente', 'foco', 'ajustes'];
+    const over = ['assistente', 'foco', 'ajustes', 'pontos', 'busca'];
     if (over.includes(t) && !over.includes(S.tab)) S.prevTab = S.tab;
     S.tab = t; S.drawer = false;
+    if (t === 'ajustes') refreshAlarmVol();
     if (t !== 'rotinas') { S.openRoutine = null; S.editRoutine = false; }
     if (t !== 'tarefas') S.openProject = null;
     render(); window.scrollTo(0, 0);
@@ -2152,6 +2501,7 @@ const A = {
       mode: 'foco', phase: 'run', total: min * 60000, end: Date.now() + min * 60000,
       label: label || (task ? task.title : t ? t.t : ''), step: st ? st.t : (t ? t.s : ''), top: t ? topIdx : null,
       taskId: task ? task.id : null, stepIdx: st ? task.steps.indexOf(st) : null, prep: S.focusPrepDraft || [], native: false,
+      cycle: extra.cycle || 0, buddy: !!extra.buddy,
     };
     S.focusMin = min; S.focusDraft = ''; S.focusPick = null; S.focusPrepDraft = [];
     saveFocus();
@@ -2159,18 +2509,18 @@ const A = {
     S.drawer = false; render(); window.scrollTo(0, 0); focusTick();
     await scheduleFocusAlerts(); render();
   },
-  async focusPause() { const f = S.focus; if (!f || f.phase !== 'run') return; f.left = focusLeft(); f.phase = 'paused'; clearInterval(A._fiv); saveFocus(); await N.cancelFocus(); render(); },
+  async focusPause() { const f = S.focus; if (!f || f.phase !== 'run') return; f.left = focusLeft(); f.phase = 'paused'; clearInterval(A._fiv); saveFocus(); await N.cancelFocus(); syncDnd(); render(); },
   async focusResume() { primeAudio(); const f = S.focus; if (!f || f.phase !== 'paused') return; f.end = Date.now() + f.left; f.phase = 'run'; saveFocus(); render(); focusTick(); await scheduleFocusAlerts(); render(); },
   async focusPlus(min = 5) {
     primeAudio(); const f = S.focus; if (!f) return;
     if (f.phase === 'run') { f.end += min * 60000; f.total += min * 60000; }
     else if (f.phase === 'paused') { f.left += min * 60000; f.total += min * 60000; }
-    else { f.mode = 'foco'; f.phase = 'run'; f.total = min * 60000; f.end = Date.now() + min * 60000; f.answered = ''; }
+    else { f.mode = 'foco'; f.phase = 'run'; f.total = min * 60000; f.end = Date.now() + min * 60000; f.answered = ''; f.counted = false; }
     saveFocus(); render(); focusTick(); await scheduleFocusAlerts(); render();
   },
   async focusBreak(min = 5) { primeAudio(); S.focus = { ...(S.focus || {}), mode: 'pausa', phase: 'run', total: min * 60000, end: Date.now() + min * 60000 }; saveFocus(); render(); focusTick(); await scheduleFocusAlerts(); render(); },
-  async focusAgain() { const f = S.focus || {}; await A.focusStart(S.focusMin || 25, f.top ?? null, f.top != null || f.taskId ? '' : (f.label || ''), { taskId: f.taskId }); },
-  async focusStop() { clearInterval(A._fiv); S.focus = null; S.parkOpen = false; saveFocus(); await N.cancelFocus(); A.back(); },
+  async focusAgain() { const f = S.focus || {}; await A.focusStart(S.focusMin || 25, f.top ?? null, f.top != null || f.taskId ? '' : (f.label || ''), { taskId: f.taskId, cycle: f.cycle || 0, buddy: !!f.buddy }); },
+  async focusStop() { clearInterval(A._fiv); S.focus = null; S.parkOpen = false; saveFocus(); await N.cancelFocus(); syncDnd(); A.back(); },
   async focusDone(yes) {
     const f = S.focus; if (!f) return;
     f.answered = yes ? 'sim' : 'nao';
@@ -2178,7 +2528,7 @@ const A = {
       if (S.page.id !== todayKey()) await loadPage(todayKey());
       const task = f.taskId ? S.projects.find(x => x.id === f.taskId) : null;
       if (task && f.stepIdx != null && task.steps[f.stepIdx]) {
-        task.steps[f.stepIdx].d = true;
+        task.steps[f.stepIdx].d = true; stepXp(task, f.stepIdx);
         const ns = nextStep(task);
         f.nextText = ns ? ns.t : '';
         if (!ns) await finishTask(task);
@@ -2279,7 +2629,11 @@ const A = {
   },
   async weekDismiss() { const d = new Date(); S.settings.weekSeen = d.getDay() === 1 ? todayKey(new Date(Date.now() - DAY)) : weekId(); await db.put('settings', S.settings); render(); },
   askWeek() { A.openAssistant(); setTimeout(() => A.send(QUICK[6]), 50); },
-  toggleTop(i) { S.page.top3[i].d = !S.page.top3[i].d; savePage(); render(); },
+  toggleTop(i) {
+    S.page.top3[i].d = !S.page.top3[i].d; savePage(); render();
+    const tops = S.page.top3.filter(t => (t.t || '').trim());
+    if (S.page.top3[i].d && tops.length && tops.every(t => t.d)) { celebrate(); toast('As prioridades do dia estão feitas!'); }
+  },
   toggleBody(i) { const c = S.settings.bodyChecks[i]; S.page.body[c] = !S.page.body[c]; savePage(); render(); },
   toggleBadCheck(i) { S.page.badChecks[i] = !S.page.badChecks[i]; savePage(); render(); },
   addDone() { const el = document.getElementById('doneInput'); const v = el.value.trim(); if (!v) return; S.page.done.push(v); savePage(); render(); document.getElementById('doneInput')?.focus(); },
@@ -2298,6 +2652,116 @@ const A = {
   },
   async refreshEvents() { await loadEvents(); render(); toast('Agenda atualizada'); },
 
+  // 2.0: tocar no silencioso
+  async setLoud(k) {
+    const s = S.settings; s[k] = !s[k]; await db.put('settings', s); applyLoud(); render();
+    if (k === 'loudDose') await syncDoses();
+    else if (k === 'loudRem') await syncNotifications();
+    else if (S.focus && S.focus.phase === 'run') await scheduleFocusAlerts();
+    if (s[k]) { await refreshAlarmVol(); toast(S.alarmVol && S.alarmVol.vol === 0 ? 'Ligado, mas o volume de alarme está zerado' : 'Vai tocar mesmo no silencioso'); }
+  },
+  async raiseAlarm() {
+    const v = await N.raiseAlarmVolume(0.7);
+    if (v) { S.alarmVol = { ...(S.alarmVol || {}), ...v }; render(); toast('Volume de alarme ajustado'); } else toast('Não consegui mudar o volume');
+  },
+  async testLoud(kind) {
+    if (!N.isNative()) return toast('O teste funciona no app Android');
+    const ok = await N.testLoud(kind).catch(() => false);
+    toast(ok ? 'Toca em 3 segundos. Pode bloquear a tela.' : 'Ative os lembretes primeiro');
+  },
+  // 2.0: Não perturbe no foco
+  async setFocusDnd() {
+    const s = S.settings;
+    if (s.focusDnd) { s.focusDnd = false; await db.put('settings', s); await N.dndOff(); render(); return; }
+    if (!N.isNative()) return toast('Funciona no app Android');
+    if (await N.dndAccess()) { s.focusDnd = true; await db.put('settings', s); render(); await syncDnd(); return toast('O foco vai ligar o Não perturbe'); }
+    S.dndPending = true;
+    toast('Ative o TDAH na Vida Real na lista e volte para o app', 5000);
+    await N.dndAskAccess();
+  },
+  // 2.0: foco acompanhado
+  async focusInvite() {
+    const f = S.focus; if (!f) return;
+    const txt = `Bora focar junto? Vou fazer ${Math.round(f.total / 60000)} min${f.label ? ` de "${f.label}"` : ''}, até as ${hm(f.end)}. Me diz no que você vai focar, e no fim a gente conta como foi.`;
+    f.buddy = true; saveFocus(); render(); scheduleFocusAlerts();
+    try { const r = await N.shareText(txt, { title: 'Focar junto', dialogTitle: 'Chamar para focar junto' }); if (r === 'copied') toast('Mensagem copiada. Cole no WhatsApp.'); } catch (e) { /* cancelou */ }
+  },
+  async focusTell() {
+    const f = S.focus; if (!f) return;
+    const res = f.answered === 'sim' ? 'terminei ✅' : f.answered === 'nao' ? 'avancei, mas ainda não terminei' : 'fechei o bloco';
+    const txt = `Fechei ${Math.round(f.total / 60000)} min de foco${f.label ? ` em "${f.label}"` : ''}: ${res}. E você?`;
+    try { const r = await N.shareText(txt, { title: 'Como foi o foco', dialogTitle: 'Contar como foi' }); if (r === 'copied') toast('Mensagem copiada.'); } catch (e) { /* cancelou */ }
+  },
+  async focusVisual() { S.settings.focusVisual = discMode() ? 'anel' : 'disco'; await db.put('settings', S.settings); render(); },
+  // 2.0: rotina guiada
+  async rplayStart() {
+    const r = A._r(); if (!r || !r.steps.length) return;
+    primeAudio();
+    const mins = stepMins(r);
+    const run = runOf(r); run.checks = []; run.minimal = false; persist('routines', r, true);
+    S.rplay = { rid: r.id, i: 0, phase: 'run', total: mins[0] * 60000, stepEnd: Date.now() + mins[0] * 60000, startedAt: Date.now(), skipped: [], doneN: 0 };
+    saveRplay(); S.prevTab = 'rotinas'; S.tab = 'rotina'; S.drawer = false;
+    render(); window.scrollTo(0, 0); rpTick(); await rpSchedule();
+  },
+  async rplayNext(done) {
+    const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid); if (!r || p.phase !== 'run') return;
+    const run = runOf(r);
+    if (done) { run.checks[p.i] = true; p.doneN++; } else p.skipped.push(p.i);
+    persist('routines', r, true);
+    if (p.i + 1 >= r.steps.length) {
+      p.phase = 'done'; p.doneAt = Date.now(); clearInterval(A._riv); saveRplay(); await N.cancelRoutineStep();
+      await logRoutine(r, false); render(); return;
+    }
+    const mins = stepMins(r);
+    p.i++; p.total = mins[p.i] * 60000; p.stepEnd = Date.now() + p.total; p.rang = false;
+    saveRplay(); render(); rpTick(); await rpSchedule();
+  },
+  rplayDone() { return A.rplayNext(true); },
+  rplaySkip() { return A.rplayNext(false); },
+  async rplayPlus() {
+    const p = S.rplay; if (!p || p.phase !== 'run') return;
+    if (p.stepEnd < Date.now()) { p.stepEnd = Date.now() + 60000; p.total = 60000; } else { p.stepEnd += 60000; p.total += 60000; }
+    p.rang = false; saveRplay(); render(); rpTick(); await rpSchedule();
+  },
+  async rplayExit() { if (S.rplay && S.rplay.phase === 'run' && !confirm('Sair da rotina guiada? O que você já fez fica marcado.')) return; await A.rplayClose(); },
+  async rplayClose() {
+    const rid = S.rplay && S.rplay.rid;
+    clearInterval(A._riv); S.rplay = null; saveRplay(); await N.cancelRoutineStep();
+    S.tab = 'rotinas'; S.openRoutine = rid || null; S.editRoutine = false; render(); window.scrollTo(0, 0);
+  },
+  setStepMin(i, v) { const r = A._r(); r.stepMin = stepMins(r); r.stepMin[i] = Math.max(1, Math.min(180, Math.round(Number(v) || 1))); persist('routines', r, true); },
+  // 2.0: pontos e recompensas
+  async addReward() {
+    const n = (document.getElementById('rwName').value || '').trim();
+    const c = Math.max(1, Math.round(Number(document.getElementById('rwCost').value) || 0));
+    if (!n) return toast('Escreva a recompensa');
+    S.xp.rewards.push({ id: uid(), name: n, cost: c }); await db.put('misc', S.xp); render();
+  },
+  async removeReward(id) { S.xp.rewards = S.xp.rewards.filter(r => r.id !== id); await db.put('misc', S.xp); render(); },
+  async redeem(id) {
+    const r = S.xp.rewards.find(x => x.id === id); if (!r) return;
+    if (xpCoins() < r.cost) return toast(`Faltam ${r.cost - xpCoins()} moedas`);
+    if (!confirm(`Resgatar "${r.name}" por ${r.cost} moedas?`)) return;
+    S.xp.spent.push({ name: r.name, cost: r.cost, at: Date.now() }); await db.put('misc', S.xp);
+    celebrate(); render(); toast(`Aproveite: ${r.name}`);
+  },
+  async toggleXp() { S.settings.xpOn = !xpOn(); await db.put('settings', S.settings); render(); },
+  // 2.0: busca
+  openSearch() {
+    S.search = { q: '', pages: null };
+    A.tab('busca');
+    setTimeout(() => { const el = document.getElementById('searchInput'); if (el) el.focus(); }, 60);
+  },
+  searchSet(v) {
+    S.search.q = v;
+    later('search', () => { const el = document.getElementById('sres'); if (el) el.innerHTML = v.trim() ? searchResults(v) : ''; }, 150);
+  },
+  async searchPage(k) { S.tab = 'hoje'; await A.openPage(k); },
+  searchRoutine(id) { A.tab('rotinas'); A.openRoutine(id); },
+  searchGuide() { S.guideQuery = (S.search && S.search.q || '').trim(); S.guideFilter = 'all'; S.tab = 'guia'; S.drawer = false; render(); window.scrollTo(0, 0); },
+  // 2.0: assistente
+  async aiNudgeLater() { S.settings.aiNudgeUntil = Date.now() + 14 * DAY; await db.put('settings', S.settings); render(); toast('Fica em Ajustes › Assistente de IA quando quiser'); },
+
   // Rotinas
   openRoutine(id) { S.openRoutine = id; S.editRoutine = false; render(); window.scrollTo(0, 0); },
   closeRoutine() { S.openRoutine = null; S.editRoutine = false; render(); },
@@ -2306,16 +2770,19 @@ const A = {
   setMinimal(v) { const r = A._r(); const run = runOf(r); run.minimal = v; run.checks = []; persist('routines', r, true); render(); },
   async finishRoutine() {
     const r = A._r(); const run = runOf(r);
-    const log = { id: uid(), routineId: r.id, at: Date.now(), minimal: !!run.minimal };
-    S.logs.push(log); await db.put('logs', log);
-    r.run = { date: todayKey(), checks: [], minimal: false }; await db.put('routines', r);
+    await logRoutine(r, run.minimal);
     toast(run.minimal ? 'Versão mínima conta. Feito!' : 'Rotina concluída!');
     render();
   },
   editRoutine() { S.editRoutine = true; render(); },
-  async doneEditing() { const r = A._r(); r.steps = r.steps.map(s => s.trim()).filter(Boolean); await db.put('routines', r); S.editRoutine = false; render(); },
-  addStep() { const r = A._r(); r.steps.push(''); persist('routines', r, true); render(); },
-  removeStep(i) { const r = A._r(); r.steps.splice(i, 1); persist('routines', r, true); render(); },
+  async doneEditing() {
+    const r = A._r(); const mins = stepMins(r);
+    const keep = r.steps.map((x, i) => [x.trim(), mins[i]]).filter(([x]) => x);
+    r.steps = keep.map(x => x[0]); if (r.stepMin) r.stepMin = keep.map(x => x[1]);
+    await db.put('routines', r); S.editRoutine = false; render();
+  },
+  addStep() { const r = A._r(); if (r.stepMin) r.stepMin = stepMins(r); r.steps.push(''); persist('routines', r, true); render(); },
+  removeStep(i) { const r = A._r(); if (r.stepMin) r.stepMin.splice(i, 1); r.steps.splice(i, 1); persist('routines', r, true); render(); },
   async saveNotify() {
     const r = A._r(); const v = document.getElementById('notifyTime').value;
     if (!v) return;
@@ -2413,7 +2880,7 @@ const A = {
   closeProject() { S.openProject = null; S.editWhat = null; render(); window.scrollTo(0, 0); },
   _p() { return S.projects.find(p => p.id === S.openProject); },
   addProjStep() { const p = A._p(); p.steps.push({ t: '', est: '', d: false }); persist('projects', p, true); render(); },
-  async toggleProjStep(i) { const p = A._p(); p.steps[i].d = !p.steps[i].d; await db.put('projects', p); await syncTopForTask(p); render(); },
+  async toggleProjStep(i) { const p = A._p(); p.steps[i].d = !p.steps[i].d; stepXp(p, i); await db.put('projects', p); await syncTopForTask(p); render(); },
   removeProjStep(i) { const p = A._p(); p.steps.splice(i, 1); persist('projects', p, true); render(); },
   async deleteProject() { if (!confirm(A._p().rep ? 'Apagar esta tarefa? A repetição para aqui.' : 'Apagar esta tarefa e os passos dela?')) return; const p = A._p(); S.projects = S.projects.filter(x => x !== p); await db.del('projects', p.id); p.done = true; await syncTaskAlarm(p); S.openProject = null; render(); },
   async setQuad(id, q) {
@@ -2784,22 +3251,26 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
   document.getElementById('fileInput').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) A.doImport(f); });
   await loadAll();
-  loadFocus();
+  applyLoud();
+  loadFocus(); loadRplay();
+  if (S.focus && S.focus.phase === 'done') countFocus(S.focus);
+  xpPage(S.page, true);
   if (!S.settings.onboarded && !S.settings.name) S.onb = newOnb();
   if (S.focus && !S.onb) S.tab = 'foco';
+  else if (S.rplay && !S.onb) S.tab = 'rotina';
   render();
-  focusTick();
+  focusTick(); rpTick();
   if (window.matchMedia) { const mq = window.matchMedia('(prefers-color-scheme: dark)'); const onChange = () => { if ((S.settings.theme || 'auto') === 'auto') applyTheme(); }; if (mq.addEventListener) mq.addEventListener('change', onChange); }
   if (N.isNative()) {
     N.onOpenUrl(handleIncomingUri);
     N.launchUrl().then(handleIncomingUri);
-    N.initFocusChannels();
+    await N.initFocusChannels();
     const info = await N.appInfo();
     if (info) { S.appVersion = `${info.version} (build ${info.build})`; S.currentVer = info.version; }
     maybeAutoBackup(24 * 3600000);
@@ -2816,7 +3287,8 @@ async function start() {
     if (S.onb) { if (ONB_STEPS.indexOf(S.onb.step) > 1) A.onbBack(); else N.minimizeApp(); }
     else if (S.drawer) A.menu(false);
     else if (S.parkOpen) { S.parkOpen = false; render(); }
-    else if (['assistente', 'foco', 'ajustes'].includes(S.tab)) A.back();
+    else if (S.tab === 'rotina') A.rplayExit();
+    else if (['assistente', 'foco', 'ajustes', 'pontos', 'busca'].includes(S.tab)) A.back();
     else if (S.editRoutine) { S.editRoutine = false; render(); }
     else if (S.openRoutine) A.closeRoutine();
     else if (S.openProject) A.closeProject();
@@ -2832,6 +3304,13 @@ async function start() {
     if (S.calPerm === 'granted') await loadEvents();
     if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); later('update', maybeCheckUpdate, 3000); }
     if (S.focus && S.focus.phase === 'run') focusTick();
+    if (S.rplay && S.rplay.phase === 'run') rpTick();
+    if (S.tab === 'ajustes') refreshAlarmVol();
+    if (S.dndPending) {
+      S.dndPending = false;
+      if (await N.dndAccess()) { S.settings.focusDnd = true; await db.put('settings', S.settings); toast('Pronto: o foco vai ligar o Não perturbe'); syncDnd(); }
+      else toast('Sem acesso ao Não perturbe. Dá para tentar de novo em Ajustes.');
+    }
     const active = document.activeElement;
     if (!active || !['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) render();
   });

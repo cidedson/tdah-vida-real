@@ -97,7 +97,7 @@ export async function syncRoutineReminders(routines) {
         title: r.title,
         body: r.trigger ? `Hora de começar. ${r.trigger}` : 'Hora de começar.',
         schedule: { on: r.notifyWeekday ? { weekday: r.notifyWeekday, hour, minute } : { hour, minute }, allowWhileIdle: true },
-        extra: { kind: 'routine', routineId: r.id },
+        channelId: remChannel(), extra: { kind: 'routine', routineId: r.id },
       };
     });
   if (list.length) await LocalNotifications.schedule({ notifications: list });
@@ -105,13 +105,14 @@ export async function syncRoutineReminders(routines) {
 }
 
 // Lembrete pontual (data e hora). Retorna true se agendou.
-export async function scheduleOnce(key, title, body, at) {
+// loudable: lembretes, tarefas e rotinas podem tocar no silencioso; avisos do app (versão nova, resumo) não.
+export async function scheduleOnce(key, title, body, at, loudable = true) {
   if (!isNative()) return false;
   const ok = await notificationsAllowed(false);
   if (!ok || !(at instanceof Date) || isNaN(at) || at.getTime() <= Date.now()) return false;
   const id = hashId('once:' + key);
   await LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => {});
-  await LocalNotifications.schedule({ notifications: [{ id, title, body, schedule: { at, allowWhileIdle: true }, extra: { kind: 'once', key } }] });
+  await LocalNotifications.schedule({ notifications: [{ id, title, body, schedule: { at, allowWhileIdle: true }, channelId: remChannel(loudable), extra: { kind: 'once', key } }] });
   return true;
 }
 
@@ -131,6 +132,42 @@ export function minimizeApp() {
 
 // ---------- Remédios e água ----------
 const CHANNEL = 'remedios';
+
+// ---------- Tocar no silencioso ----------
+// Canais "_alarme" (AlertaPlugin) usam o volume de alarme: tocam com o celular no silencioso ou no vibrar.
+let LOUD = { dose: false, rem: false };
+export function setLoud(o) { LOUD = { ...LOUD, ...o }; }
+const doseChannel = () => (LOUD.dose ? 'remedios_alarme' : CHANNEL);
+const remChannel = (loudable = true) => (loudable && LOUD.rem ? 'lembretes_alarme' : 'lembretes');
+export async function alarmVolume() {
+  if (!isNative()) return null;
+  try { return await Alerta.volumeAlarme(); } catch (e) { return null; }
+}
+export async function raiseAlarmVolume(fracao = 0.7) {
+  if (!isNative()) return null;
+  try { return await Alerta.subirVolumeAlarme({ fracao }); } catch (e) { return null; }
+}
+// kind: 'dose' | 'rem'. Toca em 3 segundos pelo canal escolhido.
+export async function testLoud(kind) {
+  if (!isNative()) return false;
+  if (!(await notificationsAllowed(true))) return false;
+  const loud = kind === 'dose' ? LOUD.dose : LOUD.rem;
+  const channelId = kind === 'dose' ? doseChannel() : remChannel();
+  await LocalNotifications.schedule({ notifications: [{ id: hashId('teste:' + kind), title: loud ? 'Teste: tocando no silencioso' : 'Teste do aviso', body: loud ? 'Este aviso usa o volume de alarme.' : 'Este aviso segue o modo do celular (silencioso não toca).', schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true }, channelId, extra: { kind: 'teste' } }] });
+  return true;
+}
+
+// ---------- Não perturbe durante o foco ----------
+export async function dndAccess() {
+  if (!isNative()) return false;
+  try { return !!(await Alerta.acessoNaoPerturbe()).ok; } catch (e) { return false; }
+}
+export async function dndAskAccess() { if (isNative()) { try { await Alerta.pedirAcessoNaoPerturbe(); } catch (e) { /* sem tela */ } } }
+export async function dndOn(until) {
+  if (!isNative()) return false;
+  try { return !!(await Alerta.ligarNaoPerturbe({ ate: Math.round(until) })).ok; } catch (e) { return false; }
+}
+export async function dndOff() { if (isNative()) { try { await Alerta.desligarNaoPerturbe(); } catch (e) { /* nada a desfazer */ } } }
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
@@ -171,7 +208,7 @@ export async function snoozeDose(extra, minutes = 15) {
   const at = new Date(Date.now() + minutes * 60000);
   await LocalNotifications.schedule({ notifications: [{
     id: hashId('snooze:' + extra.key + ':' + at.getTime()), title: extra.title || 'Lembrete', body: extra.body || 'Toque em Tomei quando tomar.',
-    schedule: { at, allowWhileIdle: true }, channelId: CHANNEL, actionTypeId: 'DOSE', extra: { ...extra, kind: 'dose-snooze' },
+    schedule: { at, allowWhileIdle: true }, channelId: doseChannel(), actionTypeId: 'DOSE', extra: { ...extra, kind: 'dose-snooze' },
   }] });
 }
 
@@ -184,11 +221,11 @@ export async function syncDoseNotifications(plan) {
   const list = [];
   for (const d of plan.daily) {
     list.push({ id: hashId('dose:' + d.key), title: d.title, body: d.body, schedule: { on: { hour: d.hour, minute: d.minute }, allowWhileIdle: true },
-      channelId: CHANNEL, actionTypeId: 'DOSE', extra: d.extra });
+      channelId: doseChannel(), actionTypeId: 'DOSE', extra: d.extra });
   }
   for (const o of plan.once) {
     if (!(o.at instanceof Date) || o.at.getTime() <= Date.now()) continue;
-    list.push({ id: o.id, title: o.title, body: o.body, schedule: { at: o.at, allowWhileIdle: true }, channelId: CHANNEL,
+    list.push({ id: o.id, title: o.title, body: o.body, schedule: { at: o.at, allowWhileIdle: true }, channelId: doseChannel(),
       ...(o.actions ? { actionTypeId: 'DOSE' } : {}), extra: o.extra });
   }
   for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
@@ -267,16 +304,27 @@ export async function initFocusChannels() {
   try { await Alerta.criarCanais(); } catch (e) { /* segue com o canal padrão */ }
 }
 const focusChannel = mode => (mode === 'alarme' ? 'foco_alarme' : mode === 'mudo' ? 'foco_mudo' : 'foco');
-export async function cancelFocus() { await cancelIds([hashId('foco:fim'), hashId('foco:aviso')]); }
-// end/warnAt em ms. mode: 'som' | 'alarme' | 'mudo'. Retorna true se agendou no celular.
-export async function scheduleFocus({ end, warnAt, title, body, mode }) {
+export async function cancelFocus() { await cancelIds([hashId('foco:fim'), hashId('foco:aviso'), hashId('foco:metade')]); }
+// end/warnAt/half em ms. mode: 'som' | 'alarme' | 'mudo'. Retorna true se agendou no celular.
+export async function scheduleFocus({ end, warnAt, title, body, mode, half, halfText }) {
   if (!isNative()) return false;
   if (!(await notificationsAllowed(false))) return false;
   await cancelFocus();
   const list = [];
   if (end > Date.now()) list.push({ id: hashId('foco:fim'), title, body, schedule: { at: new Date(end), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'focus' } });
   if (warnAt && warnAt > Date.now()) list.push({ id: hashId('foco:aviso'), title: 'Faltam 2 minutos', body: 'Hora de fechar o que está fazendo.', schedule: { at: new Date(warnAt), allowWhileIdle: true }, channelId: 'foco_mudo', extra: { kind: 'focus-warn' } });
+  if (half && half > Date.now()) list.push({ id: hashId('foco:metade'), title: 'Metade do bloco', body: halfText || 'Segue no mesmo. Se desviou, volta sem culpa.', schedule: { at: new Date(half), allowWhileIdle: true }, channelId: 'foco_mudo', extra: { kind: 'focus-half' } });
   if (list.length) await LocalNotifications.schedule({ notifications: list });
+  return true;
+}
+// Rotina guiada: aviso no fim do passo atual.
+export async function cancelRoutineStep() { await cancelIds([hashId('rotina:passo')]); }
+export async function scheduleRoutineStep({ at, title, body, mode }) {
+  if (!isNative()) return false;
+  if (!(await notificationsAllowed(false))) return false;
+  await cancelRoutineStep();
+  if (!at || at <= Date.now()) return false;
+  await LocalNotifications.schedule({ notifications: [{ id: hashId('rotina:passo'), title, body, schedule: { at: new Date(at), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'routine-step' } }] });
   return true;
 }
 export async function testFocusSound(mode) {
@@ -340,8 +388,8 @@ export async function readSharedUri(uri) {
   return r.data;
 }
 // Compartilha só texto (o link vai dentro do texto).
-export async function shareText(text) {
-  if (isNative()) { await Share.share({ title: 'Tarefa do TDAH na Vida Real', text, dialogTitle: 'Mandar a tarefa para' }); return 'shared'; }
+export async function shareText(text, opts = {}) {
+  if (isNative()) { await Share.share({ title: opts.title || 'Tarefa do TDAH na Vida Real', text, dialogTitle: opts.dialogTitle || 'Mandar a tarefa para' }); return 'shared'; }
   if (navigator.share) { try { await navigator.share({ text }); return 'shared'; } catch (e) { if (/abort/i.test(String(e && e.name))) throw new Error('cancel'); } }
   try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) { return 'shown'; }
 }

@@ -40,7 +40,7 @@ const ls = {
   set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} },
 };
 export const keyStore = {
-  provider: () => ls.get('ai_provider') || 'anthropic',
+  provider: () => ls.get('ai_provider') || (ls.get('ai_key_anthropic') ? 'anthropic' : 'gemini'), // sem escolha: Gemini, que tem plano grátis
   setProvider: p => ls.set('ai_provider', p),
   get: (p = keyStore.provider()) => ls.get(`ai_key_${p}`),
   set: (v, p = keyStore.provider()) => ls.set(`ai_key_${p}`, v),

@@ -9,7 +9,7 @@
 
 # TDAH na Vida Real
 
-App Android para tirar a rotina da cabeça. Ele lembra dos remédios e da água, ajuda a decidir o que fazer primeiro, transforma tarefa grande em passos de minutos e segura o foco por 25 minutos. O assistente de IA é opcional.
+App Android para tirar a rotina da cabeça. Ele lembra dos remédios e da água (até no silencioso), ajuda a decidir o que fazer primeiro, transforma tarefa grande em passos de minutos, guia a rotina passo a passo e segura o foco por 25 minutos. O assistente de IA é opcional.
 
 Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Google Drive de quem usa.
 
@@ -35,6 +35,11 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
     <td align="center"><img src="docs/telas/remedios.png" width="230" alt="Remédios e água com o próximo horário e os botões Tomei e Lembrar em 15 min"><br><sub><b>Remédios e água</b> com aviso</sub></td>
     <td align="center"><img src="docs/telas/hoje-escuro.png" width="230" alt="Tela Hoje no tema escuro"><br><sub><b>Tema escuro</b> ou automático</sub></td>
   </tr>
+  <tr>
+    <td align="center"><img src="docs/telas/rotina-guiada.png" width="230" alt="Rotina guiada mostrando o passo 3 de 7 com um disco de tempo e os próximos passos"><br><sub><b>Rotina guiada</b>, um passo por vez</sub></td>
+    <td align="center"><img src="docs/telas/foco-disco.png" width="230" alt="Bloco de foco com disco de tempo, ciclo de 4 blocos e foco acompanhado"><br><sub><b>Tempo visual</b> e ciclo de 4 blocos</sub></td>
+    <td align="center"><img src="docs/telas/pontos.png" width="230" alt="Pontos e recompensas com nível 3, dias seguidos, moedas e recompensas"><br><sub><b>Pontos e recompensas</b></sub></td>
+  </tr>
 </table>
 
 ## O que ele faz
@@ -45,14 +50,17 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | **Captura mágica** | Escreva ou fale do seu jeito: "dentista sexta 15h no centro", "pagar a luz todo dia 10". O app separa a data, a hora, o local, a repetição e a categoria, e avisa no horário. Funciona sem IA; com IA, ainda fatia em passos. |
 | **Humor em 1 toque** | Check-in na tela Hoje (animado, calmo, cansado, ansioso, pra baixo), com a frase do dia de recompensa, a energia e o humor da semana. |
 | **Remédios e água** | Aviso na hora com **Tomei** e **Lembrar em 15 min**, novo aviso se você não marcar e aviso para **levar o remédio** quando a agenda tem compromisso no horário. |
+| **Tocar no silencioso** | Remédios, tarefas, lembretes, rotinas e o fim do foco podem tocar pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar. Tem botão de teste e aviso quando o volume de alarme está zerado. |
 | **Próximo fixo** | Uma notificação fixa, sem som, com o próximo remédio e o passo atual, que só sai quando você conclui. |
 | **Prioridades** | Matriz de Eisenhower: Faz hoje, Agenda, Rápido ou repassa e Solta. Prazo até amanhã sobe para urgente; o que fica 7 dias na Solta vai para "Talvez um dia". Sugere as 3 do dia: uma do Faz hoje, uma da Agenda e uma rápida. |
 | **Tarefa em 3 fases** | **O quê** (pronto quando), **Como** (passos com minutos, material, quando) e **Faz** (os passos ficam travados e o foco mostra só o atual). |
 | **Repetição e categorias** | Todo dia, dias úteis, dias da semana ou todo mês. Ao concluir (ou pular), a próxima volta sozinha. Categorias com cor (Casa, Trabalho, Saúde…) viram filtro na matriz. |
-| **Bloco de foco** | Timer escuro com sino no fim, mesmo com a tela apagada; opção de tocar no silencioso e aviso 2 minutos antes. Dá para estacionar uma ideia sem sair do foco. |
-| **Rotinas** | 7 rotinas prontas (manhã, trabalho, foco, fim do expediente, noite, semana e SOS), com lembrete, versão mínima e dica para quando travar. |
+| **Bloco de foco** | Timer escuro com sino no fim, mesmo com a tela apagada, em anel ou em **disco de tempo visual**. Ciclo de pomodoro: pausa de 5 min e, a cada 4 blocos, pausa longa de 15. Liga o **Não perturbe** do Android durante o bloco e desliga sozinho no fim. **Foco acompanhado**: chame alguém pelo WhatsApp para focar junto, com aviso na metade. Conta os blocos de cada tarefa. Dá para estacionar uma ideia sem sair do foco. |
+| **Rotinas** | 7 rotinas prontas (manhã, trabalho, foco, fim do expediente, noite, semana e SOS), com lembrete, versão mínima e dica para quando travar. **Rotina guiada**: um passo por vez, com os minutos de cada passo, disco de tempo e aviso no fim de cada um. |
+| **Pontos e recompensas** | Cada coisa feita vale pontos (tarefa, passo, remédio, foco, rotina, humor). Os pontos sobem de nível e viram moedas para recompensas que você mesmo cria. Sequência de dias que não quebra por um dia vazio, comemoração ao concluir e nada de perder pontos. |
+| **Buscar** | A lupa no topo procura em tudo: tarefas e passos, lembretes, ideias, remédios, os dias anteriores (descarrego, feito, prioridades), rotinas e o guia. Sem ligar para acento. |
 | **Guia** | 100 estratégias em 10 temas. Monte o seu kit, marque o status e anote o que funcionou. |
-| **Assistente de IA** | Opcional. Fala ou texto, com Gemini (Google) ou Claude (Anthropic), no tom que você escolher: direto, encorajador ou bem-humorado. Vê a agenda, o dia e o humor, cria e fatia tarefas, marca passos, organiza o descarrego, cria lembretes e horários, marca compromissos da casa, fecha o dia e faz o resumo da semana. |
+| **Assistente de IA** | Opcional. Fala ou texto, com Gemini (Google, com plano grátis) ou Claude (Anthropic). Se você pular na configuração, o passo a passo da chave fica em Ajustes e num aviso no Hoje. Responde no tom que você escolher: direto, encorajador ou bem-humorado. Vê a agenda, o dia e o humor, cria e fatia tarefas, marca passos, organiza o descarrego, cria lembretes e horários, marca compromissos da casa, fecha o dia e faz o resumo da semana. |
 | **Agenda da casa** | Um calendário do Google compartilhado: o que uma pessoa marca aparece no celular da outra. |
 | **Compartilhar tarefa** | Manda uma tarefa pelo WhatsApp como link. Quem tem o app toca e a tarefa abre direto nele, com passos e prazo, pronta para entrar na matriz. |
 | **Aviso de versão nova** | Uma vez por dia o app confere se saiu versão nova. Se saiu, mostra as novidades na tela Hoje com o botão **Baixar e instalar**. |
@@ -74,9 +82,10 @@ Requer Android 7 ou mais novo. Não há versão para iPhone.
 
 1. **Configuração guiada:** horários, o que mais trava, remédios e água, um texto sobre você para o assistente e as permissões.
 2. **Permissões:** Notificações e "Alarmes e lembretes" para os avisos chegarem na hora; Agenda para ler os compromissos; Microfone só para o ditado.
-3. **Teste o sino:** menu ☰ › Ajustes › Bloco de foco › **Testar**.
-4. **Backup:** menu ☰ › Ajustes › **Conectar Google Drive**. O app grava sozinho a cada 6 horas de uso.
-5. **IA (opcional):** toque no microfone do meio da barra de baixo e cole a sua chave.
+3. **Silencioso:** menu ☰ › Ajustes › **Tocar no silencioso**. Ligue o que deve tocar mesmo com o celular no silencioso e toque em **Testar remédio**.
+4. **Não perturbe no foco (opcional):** Ajustes › Bloco de foco › **Não perturbe durante o foco**. O Android abre a lista de acesso ao Não perturbe; ative o TDAH na Vida Real e volte.
+5. **Backup:** menu ☰ › Ajustes › **Conectar Google Drive**. O app grava sozinho a cada 6 horas de uso.
+6. **IA (opcional):** Ajustes › **Assistente de IA**, ou o microfone do meio da barra de baixo. O passo a passo da chave aparece lá; a do Gemini é grátis.
 
 Para a agenda do trabalho aparecer, ela precisa estar sincronizada no calendário do Android (no app do Outlook: Configurações › sua conta › Sincronizar calendários).
 
@@ -109,7 +118,8 @@ Por padrão, o assistente não recebe os nomes dos remédios nem os itens do "Co
 - **App Android:** [Capacitor](https://capacitorjs.com) 8, com os plugins de notificações locais, agenda, reconhecimento de voz, arquivos e compartilhamento.
 - **Código nativo próprio** em `android/app/src/main/java/com/cidedson/tdahvidareal/`:
   - `DocBackupPlugin.java`: backup e restauração num arquivo do Google Drive pelo seletor de documentos do Android.
-  - `AlertaPlugin.java`: canais de notificação do foco (sino normal, no silencioso e só vibrar) e da notificação fixa.
+  - `AlertaPlugin.java`: canais de notificação (os terminados em `_alarme` usam o volume de alarme e tocam no silencioso), volume de alarme e o Não perturbe do foco.
+  - `NaoPerturbeReceiver.java`: desliga o Não perturbe no fim do bloco, mesmo com o app fechado.
 - **Arquivos principais:**
 
 | Arquivo | O que tem |

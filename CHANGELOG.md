@@ -2,6 +2,20 @@
 
 Cada push na `main` gera um APK em [Releases](../../releases). O número final da versão é o número do build.
 
+## 2.0 — 23 de novembro de 2026
+
+As melhores ideias de oito apps para TDAH, num app só.
+
+- **Tocar no silencioso:** em Ajustes › Tocar no silencioso, escolha o que toca pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar: remédios e água; tarefas, lembretes e rotinas; e o fim do foco e dos passos da rotina. Tem **Testar remédio**, **Testar lembrete** e aviso quando o volume de alarme está zerado, com o botão **Subir para 70%**.
+- **Rotina guiada** (ideia do Routinery): em cada rotina, **Começar guiada** mostra um passo por vez, com os minutos de cada passo, um disco de tempo e aviso no fim. Passou do tempo? Ele conta para cima, sem bronca. **Feito**, **Pular** e **+1 min**. Os minutos de cada passo mudam em Editar.
+- **Tempo visual** (ideia do Time Timer): o bloco de foco pode mostrar um disco vermelho que vai diminuindo, no lugar do anel.
+- **Pomodoro em ciclo** (ideia do TickTick): bolinhas mostram o bloco 1 a 4; depois do 4º, a pausa longa de 15 min. A tarefa conta quantos blocos de foco recebeu, e o resumo da semana mostra o tempo de foco.
+- **Não perturbe no foco** (ideia do Freedom): em Ajustes › Bloco de foco, o foco liga o Não perturbe do Android e desliga sozinho no fim, mesmo com o app fechado. Ligações e exceções do seu Não perturbe continuam. Se ele já estava ligado, o app não mexe.
+- **Foco acompanhado** (ideia do Focusmate): **Chamar alguém para focar junto** manda o convite pelo WhatsApp com o horário. Vem um aviso na metade do bloco e, no fim, **Contar como foi**.
+- **Pontos e recompensas** (ideias do Habitica e do Numo): cada coisa feita vale pontos, que sobem de nível e viram moedas para recompensas que você mesmo cria. Sequência de dias que não quebra por um dia vazio, confete ao concluir e nada de perder pontos. O nível fica no topo do Hoje; dá para desligar.
+- **Buscar** (ideia do Notion): a lupa no topo do Hoje procura em tarefas e passos, lembretes, ideias, remédios, dias anteriores, rotinas e guia, sem ligar para acento.
+- **Chave da IA sempre à mão:** quem pula o assistente na configuração vê o passo a passo da chave em Ajustes › Assistente de IA e um aviso pequeno no Hoje (que some com o ×). Sem escolha feita, o padrão agora é o Gemini, que tem plano grátis.
+
 ## 1.9 — 21 de novembro de 2026
 
 - **Tela Hoje mais limpa:** de 4 rolagens para 1 e meia, sem perder nenhuma função.
