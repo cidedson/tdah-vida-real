@@ -101,6 +101,13 @@ export async function syncRoutineReminders(routines) {
       };
     });
   if (list.length) await LocalNotifications.schedule({ notifications: list });
+  await toqueCancel(routines.map(r => hashId('routine:' + r.id)));
+  if (LOUD.rem) {
+    for (const n of list) {
+      const on = n.schedule.on;
+      await toque({ id: n.id, rep: on.weekday ? 'semana' : 'dia', dia: on.weekday || 0, hora: on.hour, minuto: on.minute });
+    }
+  }
   return list.length;
 }
 
@@ -112,13 +119,16 @@ export async function scheduleOnce(key, title, body, at, loudable = true) {
   if (!ok || !(at instanceof Date) || isNaN(at) || at.getTime() <= Date.now()) return false;
   const id = hashId('once:' + key);
   await LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => {});
+  await toqueCancel([id]);
   await LocalNotifications.schedule({ notifications: [{ id, title, body, schedule: { at, allowWhileIdle: true }, channelId: remChannel(loudable), extra: { kind: 'once', key } }] });
+  if (loudable && LOUD.rem) await toque({ id, rep: 'uma', at });
   return true;
 }
 
 export async function cancelOnce(key) {
   if (!isNative()) return;
   await LocalNotifications.cancel({ notifications: [{ id: hashId('once:' + key) }] }).catch(() => {});
+  await toqueCancel([hashId('once:' + key)]);
 }
 
 // ---------- Botão voltar do Android ----------
@@ -137,8 +147,19 @@ const CHANNEL = 'remedios';
 // Canais "_alarme" (AlertaPlugin) usam o volume de alarme: tocam com o celular no silencioso ou no vibrar.
 let LOUD = { dose: false, rem: false };
 export function setLoud(o) { LOUD = { ...LOUD, ...o }; }
-const doseChannel = () => (LOUD.dose ? 'remedios_alarme' : CHANNEL);
-const remChannel = (loudable = true) => (loudable && LOUD.rem ? 'lembretes_alarme' : 'lembretes');
+// No silencioso, o som do canal fica mudo em vários celulares (Samsung). Então os canais "_toque"
+// só vibram, e o próprio app toca o som pelo volume de alarme na mesma hora (AlertaPlugin.agendarToque).
+const doseChannel = () => (LOUD.dose ? 'remedios_toque' : CHANNEL);
+const remChannel = (loudable = true) => (loudable && LOUD.rem ? 'lembretes_toque' : 'lembretes');
+// item: { id, rep: 'uma'|'dia'|'semana', at (ms), hora, minuto, dia (1 = domingo), som: 'alarme'|'sino' }
+async function toque(item) {
+  if (!isNative()) return;
+  try { await Alerta.agendarToque({ som: 'alarme', ...item, at: item.at instanceof Date ? item.at.getTime() : item.at }); } catch (e) { /* segue só com a notificação */ }
+}
+async function toqueCancel(ids) {
+  if (!isNative() || !ids || !ids.length) return;
+  try { await Alerta.cancelarToques({ ids }); } catch (e) { /* nada para cancelar */ }
+}
 export async function alarmVolume() {
   if (!isNative()) return null;
   try { return await Alerta.volumeAlarme(); } catch (e) { return null; }
@@ -153,7 +174,9 @@ export async function testLoud(kind) {
   if (!(await notificationsAllowed(true))) return false;
   const loud = kind === 'dose' ? LOUD.dose : LOUD.rem;
   const channelId = kind === 'dose' ? doseChannel() : remChannel();
-  await LocalNotifications.schedule({ notifications: [{ id: hashId('teste:' + kind), title: loud ? 'Teste: tocando no silencioso' : 'Teste do aviso', body: loud ? 'Este aviso usa o volume de alarme.' : 'Este aviso segue o modo do celular (silencioso não toca).', schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true }, channelId, extra: { kind: 'teste' } }] });
+  const id = hashId('teste:' + kind), at = new Date(Date.now() + 3000);
+  await LocalNotifications.schedule({ notifications: [{ id, title: loud ? 'Teste: tocando no silencioso' : 'Teste do aviso', body: loud ? 'Este aviso toca pelo volume de alarme.' : 'Este aviso segue o modo do celular (silencioso não toca).', schedule: { at, allowWhileIdle: true }, channelId, extra: { kind: 'teste' } }] });
+  if (loud) await toque({ id, rep: 'uma', at });
   return true;
 }
 
@@ -201,6 +224,7 @@ export async function openExactAlarmSettings() {
 export async function cancelIds(ids) {
   if (!isNative() || !ids.length) return;
   await LocalNotifications.cancel({ notifications: ids.map(id => ({ id })) }).catch(() => {});
+  await toqueCancel(ids);
 }
 
 export async function snoozeDose(extra, minutes = 15) {
@@ -210,6 +234,7 @@ export async function snoozeDose(extra, minutes = 15) {
     id: hashId('snooze:' + extra.key + ':' + at.getTime()), title: extra.title || 'Lembrete', body: extra.body || 'Toque em Tomei quando tomar.',
     schedule: { at, allowWhileIdle: true }, channelId: doseChannel(), actionTypeId: 'DOSE', extra: { ...extra, kind: 'dose-snooze' },
   }] });
+  if (LOUD.dose) await toque({ id: hashId('snooze:' + extra.key + ':' + at.getTime()), rep: 'uma', at });
 }
 
 // plan: { daily: [{key,title,body,hour,minute,extra}], once: [{id,title,body,at,extra,actions}] }
@@ -229,6 +254,10 @@ export async function syncDoseNotifications(plan) {
       ...(o.actions ? { actionTypeId: 'DOSE' } : {}), extra: o.extra });
   }
   for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
+  if (LOUD.dose) {
+    for (const d of plan.daily) await toque({ id: hashId('dose:' + d.key), rep: 'dia', hora: d.hour, minuto: d.minute });
+    for (const n of list) if (n.schedule.at) await toque({ id: n.id, rep: 'uma', at: n.schedule.at });
+  }
   lsSet('dose_notif_ids', list.map(n => n.id));
   return list.length;
 }
@@ -303,7 +332,7 @@ export async function initFocusChannels() {
   if (!isNative()) return;
   try { await Alerta.criarCanais(); } catch (e) { /* segue com o canal padrão */ }
 }
-const focusChannel = mode => (mode === 'alarme' ? 'foco_alarme' : mode === 'mudo' ? 'foco_mudo' : 'foco');
+const focusChannel = mode => (mode === 'alarme' ? 'foco_toque' : mode === 'mudo' ? 'foco_mudo' : 'foco');
 export async function cancelFocus() { await cancelIds([hashId('foco:fim'), hashId('foco:aviso'), hashId('foco:metade')]); }
 // end/warnAt/half em ms. mode: 'som' | 'alarme' | 'mudo'. Retorna true se agendou no celular.
 export async function scheduleFocus({ end, warnAt, title, body, mode, half, halfText }) {
@@ -315,6 +344,7 @@ export async function scheduleFocus({ end, warnAt, title, body, mode, half, half
   if (warnAt && warnAt > Date.now()) list.push({ id: hashId('foco:aviso'), title: 'Faltam 2 minutos', body: 'Hora de fechar o que está fazendo.', schedule: { at: new Date(warnAt), allowWhileIdle: true }, channelId: 'foco_mudo', extra: { kind: 'focus-warn' } });
   if (half && half > Date.now()) list.push({ id: hashId('foco:metade'), title: 'Metade do bloco', body: halfText || 'Segue no mesmo. Se desviou, volta sem culpa.', schedule: { at: new Date(half), allowWhileIdle: true }, channelId: 'foco_mudo', extra: { kind: 'focus-half' } });
   if (list.length) await LocalNotifications.schedule({ notifications: list });
+  if (mode === 'alarme' && end > Date.now()) await toque({ id: hashId('foco:fim'), rep: 'uma', at: end, som: 'sino' });
   return true;
 }
 // Rotina guiada: aviso no fim do passo atual.
@@ -325,12 +355,15 @@ export async function scheduleRoutineStep({ at, title, body, mode }) {
   await cancelRoutineStep();
   if (!at || at <= Date.now()) return false;
   await LocalNotifications.schedule({ notifications: [{ id: hashId('rotina:passo'), title, body, schedule: { at: new Date(at), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'routine-step' } }] });
+  if (mode === 'alarme') await toque({ id: hashId('rotina:passo'), rep: 'uma', at, som: 'sino' });
   return true;
 }
 export async function testFocusSound(mode) {
   if (!isNative()) return false;
   if (!(await notificationsAllowed(true))) return false;
-  await LocalNotifications.schedule({ notifications: [{ id: hashId('foco:teste'), title: 'Teste do som do foco', body: 'É assim que o fim do bloco vai tocar.', schedule: { at: new Date(Date.now() + 2000), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'focus-test' } }] });
+  const at = new Date(Date.now() + 2000);
+  await LocalNotifications.schedule({ notifications: [{ id: hashId('foco:teste'), title: 'Teste do som do foco', body: 'É assim que o fim do bloco vai tocar.', schedule: { at, allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'focus-test' } }] });
+  if (mode === 'alarme') await toque({ id: hashId('foco:teste'), rep: 'uma', at, som: 'sino' });
   return true;
 }
 

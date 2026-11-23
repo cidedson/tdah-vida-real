@@ -15,18 +15,21 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONObject;
+
 /**
- * Canais de notificação com som próprio e o "Não perturbe" do bloco de foco.
+ * Canais de notificação, toque pelo volume de alarme e o "Não perturbe" do bloco de foco.
  *
- * Canais que terminam em "_alarme" usam o volume de ALARME (AudioAttributes.USAGE_ALARM):
- * tocam mesmo com o celular no silencioso ou no vibrar, e passam pelo Não perturbe
- * quando ele deixa os alarmes tocarem (o padrão do Android).
+ * Tocar no silencioso: as notificações vão para os canais "_toque" (sem som, só vibram) e o app
+ * toca o som ele mesmo pelo volume de alarme (Toques + ToqueReceiver). O som de canal com
+ * USAGE_ALARM fica mudo no silencioso em vários celulares, como os Samsung.
  */
 @CapacitorPlugin(name = "Alerta")
 public class AlertaPlugin extends Plugin {
@@ -44,15 +47,19 @@ public class AlertaPlugin extends Plugin {
             Context ctx = getContext();
             NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
             Uri sino = recurso(ctx, "sino");
-            Uri alarme = recurso(ctx, "alarme");
             Uri padrao = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
             nm.createNotificationChannel(canal("foco", "Fim do bloco de foco", "Avisa quando o bloco de foco termina.", sino, AudioAttributes.USAGE_NOTIFICATION));
-            nm.createNotificationChannel(canal("foco_alarme", "Fim do foco (toca no silencioso)", "Avisa quando o bloco de foco termina, pelo volume de alarme.", sino, AudioAttributes.USAGE_ALARM));
             nm.createNotificationChannel(canal("foco_mudo", "Foco sem som (só vibra)", "Avisos do foco que só vibram.", null, 0));
-            nm.createNotificationChannel(canal("remedios_alarme", "Remédios e água (toca no silencioso)", "Horários de remédios e água, pelo volume de alarme.", alarme, AudioAttributes.USAGE_ALARM));
             nm.createNotificationChannel(canal("lembretes", "Tarefas e lembretes", "Lembretes, tarefas com horário e rotinas.", padrao, AudioAttributes.USAGE_NOTIFICATION));
-            nm.createNotificationChannel(canal("lembretes_alarme", "Tarefas e lembretes (toca no silencioso)", "Lembretes, tarefas com horário e rotinas, pelo volume de alarme.", alarme, AudioAttributes.USAGE_ALARM));
+            // Canais do "tocar no silencioso": a notificação só vibra; o som vem do app, pelo volume de alarme.
+            nm.createNotificationChannel(canal("foco_toque", "Fim do foco (toca no silencioso)", "O app toca o sino pelo volume de alarme.", null, 0));
+            nm.createNotificationChannel(canal("remedios_toque", "Remédios e água (toca no silencioso)", "O app toca o aviso pelo volume de alarme.", null, 0));
+            nm.createNotificationChannel(canal("lembretes_toque", "Tarefas e lembretes (toca no silencioso)", "O app toca o aviso pelo volume de alarme.", null, 0));
+            // Canais da 2.0 que dependiam do som do canal (mudo no silencioso em alguns celulares).
+            for (String velho : new String[] {"foco_alarme", "remedios_alarme", "lembretes_alarme"}) {
+                if (nm.getNotificationChannel(velho) != null) nm.deleteNotificationChannel(velho);
+            }
 
             NotificationChannel fixo = new NotificationChannel("fixo", "Próximo (fixo na barra)", NotificationManager.IMPORTANCE_DEFAULT);
             fixo.setDescription("Mostra o próximo remédio ou passo até você concluir. Não toca nem vibra.");
@@ -85,6 +92,31 @@ public class AlertaPlugin extends Plugin {
             c.setSound(null, null);
         }
         return c;
+    }
+
+    // ---------- Toque pelo volume de alarme ----------
+
+    /** item: { id, rep: "uma"|"dia"|"semana", at, hora, minuto, dia, som } */
+    @PluginMethod
+    public void agendarToque(PluginCall call) {
+        try {
+            JSONObject item = new JSONObject(call.getData().toString());
+            Toques.agendar(getContext(), item);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Não consegui agendar o toque: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void cancelarToques(PluginCall call) {
+        try {
+            JSArray ids = call.getArray("ids", new JSArray());
+            for (int i = 0; i < ids.length(); i++) Toques.cancelar(getContext(), ids.getInt(i));
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Não consegui cancelar os toques: " + e.getMessage());
+        }
     }
 
     // ---------- Volume de alarme ----------

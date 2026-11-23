@@ -14,6 +14,7 @@ As melhores ideias de oito apps para TDAH, num app só.
 - **Foco acompanhado** (ideia do Focusmate): **Chamar alguém para focar junto** manda o convite pelo WhatsApp com o horário. Vem um aviso na metade do bloco e, no fim, **Contar como foi**.
 - **Pontos e recompensas** (ideias do Habitica e do Numo): cada coisa feita vale pontos, que sobem de nível e viram moedas para recompensas que você mesmo cria. Sequência de dias que não quebra por um dia vazio, confete ao concluir e nada de perder pontos. O nível fica no topo do Hoje; dá para desligar.
 - **Buscar** (ideia do Notion): a lupa no topo do Hoje procura em tarefas e passos, lembretes, ideias, remédios, dias anteriores, rotinas e guia, sem ligar para acento.
+- **Correção do tocar no silencioso:** em celulares Samsung, o som da notificação ficava mudo no silencioso mesmo marcado como alarme. Agora o próprio app toca o aviso pelo volume de alarme, como o relógio faz, e a notificação só vibra. Os toques voltam sozinhos depois de reiniciar o celular.
 - **Chave da IA sempre à mão:** quem pula o assistente na configuração vê o passo a passo da chave em Ajustes › Assistente de IA e um aviso pequeno no Hoje (que some com o ×). Sem escolha feita, o padrão agora é o Gemini, que tem plano grátis.
 
 ## 1.9 — 21 de novembro de 2026

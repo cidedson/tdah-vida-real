@@ -50,6 +50,14 @@
         <!-- Desliga o Não perturbe no fim do bloco de foco -->
         <receiver android:name=".NaoPerturbeReceiver" android:exported="false" />
 
+        <!-- Toca o aviso pelo volume de alarme (mesmo no silencioso) e reagenda depois de reiniciar -->
+        <receiver android:name=".ToqueReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -68,4 +76,5 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Ligar e desligar o Não perturbe durante o foco (a pessoa autoriza nas configurações) -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
