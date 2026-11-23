@@ -2,6 +2,16 @@
 
 Cada push na `main` gera um APK em [Releases](../../releases). O número final da versão é o número do build.
 
+## 2.1 — 23 de novembro de 2026
+
+Mais quatro ideias dos apps de TDAH, depois de estudar cada um.
+
+- **Rotina guiada com voz** (Routinery): o app fala o passo e o tempo dele. Novos: **Pausar**, **+ Incluir passo** (só nesta vez) e **Avançar sozinho**, que passa para o próximo passo quando o tempo acaba, inclusive com o celular bloqueado. Liga e desliga no card da rotina.
+- **Tela acesa e tempo na barra** (Time Timer e Routinery): durante o foco e a rotina guiada a tela não apaga, e a barra de notificações mostra a contagem regressiva. As duas opções ficam em Ajustes › Bloco de foco.
+- **Calendário da semana** (TickTick): menu ☰ › Calendário, ou o botão **Semana** no Meu dia. Mostra os próximos 7 dias com compromissos, tarefas e lembretes juntos, as tarefas atrasadas, o **+** para criar tarefa num dia e o botão para mudar uma tarefa de dia.
+- **Tarefa parada vale mais** (Habitica, sem a parte que castiga): cada 3 dias parada soma 1 ponto, até +10. Na matriz aparece “vale 15 pts”.
+- **Dia perfeito**: prioridades do dia feitas e todos os remédios e água marcados valem +20 pontos e confete.
+
 ## 2.0 — 23 de novembro de 2026
 
 As melhores ideias de oito apps para TDAH, num app só.

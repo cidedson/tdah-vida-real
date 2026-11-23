@@ -347,16 +347,50 @@ export async function scheduleFocus({ end, warnAt, title, body, mode, half, half
   if (mode === 'alarme' && end > Date.now()) await toque({ id: hashId('foco:fim'), rep: 'uma', at: end, som: 'sino' });
   return true;
 }
-// Rotina guiada: aviso no fim do passo atual.
-export async function cancelRoutineStep() { await cancelIds([hashId('rotina:passo')]); }
-export async function scheduleRoutineStep({ at, title, body, mode }) {
+// Rotina guiada: aviso no fim do passo atual (ou de todos os passos, quando ela avança sozinha).
+// steps: [{ at (ms), title, body }]
+export async function cancelRoutineStep() { await cancelIds([hashId('rotina:passo'), ...lsGet('rotina_ids')]); lsSet('rotina_ids', []); }
+export async function scheduleRoutineSteps(steps, mode) {
   if (!isNative()) return false;
   if (!(await notificationsAllowed(false))) return false;
   await cancelRoutineStep();
-  if (!at || at <= Date.now()) return false;
-  await LocalNotifications.schedule({ notifications: [{ id: hashId('rotina:passo'), title, body, schedule: { at: new Date(at), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'routine-step' } }] });
-  if (mode === 'alarme') await toque({ id: hashId('rotina:passo'), rep: 'uma', at, som: 'sino' });
+  const list = steps.filter(x => x.at > Date.now()).slice(0, 40).map((x, k) => ({ id: hashId('rotina:passo:' + k), title: x.title, body: x.body, schedule: { at: new Date(x.at), allowWhileIdle: true }, channelId: focusChannel(mode), extra: { kind: 'routine-step' } }));
+  if (!list.length) return false;
+  await LocalNotifications.schedule({ notifications: list });
+  if (mode === 'alarme') for (const n of list) await toque({ id: n.id, rep: 'uma', at: n.schedule.at, som: 'sino' });
+  lsSet('rotina_ids', list.map(n => n.id));
   return true;
+}
+
+// ---------- Voz, tela acesa e tempo na barra ----------
+export async function speak(text) {
+  if (!text) return;
+  if (isNative()) { try { await Alerta.falar({ texto: text }); } catch (e) { /* sem voz */ } return; }
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = 'pt-BR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch (e) { /* navegador sem voz */ }
+}
+export async function stopSpeak() {
+  if (isNative()) { try { await Alerta.pararFala(); } catch (e) { /* nada */ } return; }
+  try { window.speechSynthesis.cancel(); } catch (e) { /* nada */ }
+}
+let wakeRef = null, awakeOn = false;
+export async function keepAwake(on) {
+  on = !!on; if (on === awakeOn) return; awakeOn = on;
+  if (isNative()) { try { await Alerta.telaAcesa({ ligar: on }); } catch (e) { /* segue */ } return; }
+  try {
+    if (on && navigator.wakeLock) wakeRef = await navigator.wakeLock.request('screen');
+    else if (!on && wakeRef) { await wakeRef.release(); wakeRef = null; }
+  } catch (e) { /* navegador sem wake lock */ }
+}
+let lastCountdown = '';
+// { title, text, end (ms), paused, hideAt (ms) }
+export async function showCountdown(o) {
+  if (!isNative()) return;
+  const key = JSON.stringify(o); if (key === lastCountdown) return; lastCountdown = key;
+  try { await Alerta.mostrarCronometro({ titulo: o.title, texto: o.text, fim: Math.round(o.end), pausado: !!o.paused, some: Math.round(o.hideAt || 0) }); } catch (e) { lastCountdown = ''; }
+}
+export async function hideCountdown() {
+  if (!isNative() || lastCountdown === 'off') return; lastCountdown = 'off';
+  try { await Alerta.esconderCronometro(); } catch (e) { /* nada */ }
 }
 export async function testFocusSound(mode) {
   if (!isNative()) return false;

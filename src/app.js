@@ -7,7 +7,7 @@ import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, 
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '2.0 (navegador)';
+const VERSION = '2.1 (navegador)';
 const TUTORIAL_URL = 'https://cidedson.github.io/como-usar/'; // não pode começar com /t: esses links abrem o app (App Links)
 
 // ---------------- Estado ----------------
@@ -23,7 +23,7 @@ const S = {
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
   moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
-  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false,
+  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false,
 };
 
 // ---------------- Utilidades ----------------
@@ -506,6 +506,7 @@ const ICONS = {
   assistente: '<path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
   foco: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/>',
   busca: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
+  calendario: '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/>',
   pontos: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 2.6 3.9M16 6h2.5a2.5 2.5 0 0 1-2.6 3.9M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
   play: '<path d="M7 5l12 7-12 7z" fill="currentColor"/>',
   tutorial: '<circle cx="12" cy="12" r="9"/><path d="M10 8.6l5.2 3.4-5.2 3.4z"/>',
@@ -570,7 +571,7 @@ function drawer() {
     <p class="grp">Dia a dia</p>
     ${item('hoje', 'Hoje')}${item('busca', 'Buscar', '', 'A.openSearch()')}${item('remedios', 'Remédios e água', dz.length ? `${dz.filter(d => tk[d.key]).length}/${dz.length}` : '')}${item('rotinas', 'Rotinas')}${item('assistente', 'Assistente', '', 'A.openAssistant()')}${item('foco', 'Bloco de foco', focusCnt)}
     <p class="grp">Organizar</p>
-    ${item('semana', 'Semana')}${item('tarefas', 'Prioridades', openProj)}${item('ideias', 'Ideias', ideas)}${item('habitos', 'Hábitos')}${item('lembretes', 'Lembretes', remToday ? `${remToday} hoje` : '')}${item('pontos', 'Pontos e recompensas', S.xp && xpOn() ? `nível ${xpLevel()}` : '')}
+    ${item('calendario', 'Calendário')}${item('semana', 'Semana')}${item('tarefas', 'Prioridades', openProj)}${item('ideias', 'Ideias', ideas)}${item('habitos', 'Hábitos')}${item('lembretes', 'Lembretes', remToday ? `${remToday} hoje` : '')}${item('pontos', 'Pontos e recompensas', S.xp && xpOn() ? `nível ${xpLevel()}` : '')}
     <p class="grp">Juntos e aprender</p>
     ${item('agenda', 'Agenda da casa')}${item('tutorial', 'Como usar (tutorial)', '', 'A.openTutorial()')}${item('guia', 'Guia · 100 estratégias', '', 'A.openGuide()')}${item('kit', 'Meu kit', favs, "A.openKit()")}
     <div class="foot">${item('ajustes', 'Ajustes')}<p class="small" style="margin:6px 14px 0">versão ${h(S.appVersion || VERSION)}</p></div>
@@ -873,7 +874,7 @@ function meuDiaCard() {
     html += `<div class="dper ${k === nowPer && today ? 'now' : ''}"><button class="dph" onclick="A.togglePer('${k}')" aria-expanded="${open}">${label}${k === nowPer && today ? ' <span class="nowtag">agora</span>' : ''}<span class="grow"></span>${!open ? `<span class="small">${dn} de ${list.length}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? list.map(dayRow).join('') : ''}</div>`;
   });
   const doses = dosesForDay(); const tk = p.doses || {};
-  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today ? `<button class="chip" onclick="A.tab('agenda')">${svg('agenda', 14)} Agenda</button>` : ''}</div>`;
+  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today ? `<button class="chip" onclick="A.tab('calendario')">${svg('calendario', 14)} Semana</button>` : ''}</div>`;
   const conn = today && N.isNative() && S.calPerm !== 'granted' ? `<p class="small" style="margin:8px 0 0">Conecte a agenda em Ajustes para ver seus compromissos aqui.</p>` : '';
   return `<div class="card meudia"><div class="row"><h2 class="grow" style="margin:0">Meu dia</h2>${prios.length ? `<span class="tag">★ ${pd} de ${prios.length}</span>` : ''}<button class="iconbtn sm" onclick="A.daySheetOpen('new')" aria-label="Adicionar ao dia">${svg('plus', 20, 2.2)}</button></div>${chips}${html}${conn}
     ${prios.length && prios.length < 3 && today ? `<button class="ghost mini mt" onclick="A.daySheetOpen('new', 'prio')">★ Adicionar prioridade</button>` : ''}</div>`;
@@ -995,7 +996,9 @@ function routineDetail(r) {
     : r.steps.map((s, i) => check(!!run.checks[i], h(s), `A.toggleStep(${i})`)).join('');
   const tot = stepMins(r).reduce((a, b) => a + b, 0);
   const body = `${back}
-  ${r.steps.length ? `<div class="card mt"><button style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px" onclick="A.rplayStart()">${svg('play', 18)} Começar guiada · ${tot} min</button><p class="small mt" style="margin-bottom:0">Um passo por vez, com tempo e aviso no fim de cada um. Os minutos de cada passo mudam em Editar.</p></div>` : ''}
+  ${r.steps.length ? `<div class="card mt"><button style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px" onclick="A.rplayStart()">${svg('play', 18)} Começar guiada · ${tot} min</button><p class="small mt" style="margin-bottom:0">Um passo por vez, com tempo e aviso no fim de cada um. Os minutos de cada passo mudam em Editar.</p>
+    <div class="setrow"><div class="lb">Falar os passos<div class="small" style="font-weight:500">Diz o passo e o tempo dele</div></div>${sw(rpVoice(), 'Falar os passos', 'A.rplayVoice()')}</div>
+    <div class="setrow"><div class="lb">Avançar sozinho<div class="small" style="font-weight:500">Acabou o tempo, vai para o próximo</div></div>${sw(rpAuto(), 'Avançar sozinho', 'A.rplayAuto()')}</div></div>` : ''}
   <div class="card mt"><div class="small">${h(r.when)} · ${h(r.duration)}</div><div class="mt"><b>Gatilho:</b> ${h(r.trigger)}</div>
     <div class="pills mt"><button class="pill ${!run.minimal ? 'on' : ''}" onclick="A.setMinimal(false)">Completa</button><button class="pill ${run.minimal ? 'on' : ''}" onclick="A.setMinimal(true)">Versão mínima</button></div></div>
   <div class="card">${steps}<button class="mt" style="width:100%" onclick="A.finishRoutine()">Concluí a rotina</button></div>
@@ -1166,7 +1169,7 @@ async function syncTaskAlarm(t) {
 // Concluir: guarda, tira o aviso e, se repete, cria a próxima.
 async function finishTask(t, skipped = false) {
   t.done = true; t.doneAt = Date.now(); if (skipped) t.skipped = true;
-  if (!skipped) { xpSet('t:' + t.id, 10); celebrate(); }
+  if (!skipped) { xpSet('t:' + t.id, 10 + ageBonus(t)); celebrate(); }
   await db.put('projects', t); await syncTaskAlarm(t);
   const next = t.rep && !t.spawned ? await spawnNext(t) : null;
   await syncTopForTask(t);
@@ -1250,6 +1253,8 @@ function ntCatPills(n) {
   const eff = ntEffCat(n);
   return cats().map(c => `<button class="pill ${eff === c.id ? 'on' : ''}" style="white-space:nowrap" onclick="A.ntCat('${c.id}')">${cdot(c)}${h(c.name)}</button>`).join('');
 }
+// Tarefa criada pelo + de um dia do calendário: fica naquele dia, se o texto não disser outro.
+function withDay(c, n) { if (n && n.day && c && !c.date) c.date = n.day; return c; }
 function newTaskSheet() {
   const n = S.newTask; if (!n) return '';
   const p = n.plan;
@@ -1277,6 +1282,7 @@ function newTaskSheet() {
       <p class="small mt" style="margin-bottom:0">Escreva do seu jeito: "dentista sexta 15h no centro", "pagar a luz todo dia 10". O app pega a data, a hora, o local e a repetição.${hasAI() && S.settings.autoSlice !== false ? ' A IA ainda fatia em passos pequenos. Nada é salvo sem você aceitar.' : ''}</p>`;
   }
   return `<div class="scrim" style="z-index:32" onclick="A.ntClose()"></div><div class="sheet" role="dialog" aria-label="Nova tarefa"><div class="grab"></div>
+    ${n.day ? `<p class="small" style="margin:0 0 8px">${svg('calendario', 14)} Para ${n.day === todayKey() ? 'hoje' : fmtDateKey(n.day)}, se você não escrever outro dia.</p>` : ''}
     <div class="row"><input class="grow" type="text" id="ntTitle" placeholder="Ex.: dentista sexta 15h no centro" value="${h(n.title)}" oninput="A.ntSet(this.value)" onkeydown="if(event.key==='Enter')A.ntSubmit()" ${n.busy || p ? 'disabled' : ''}><button class="iconbtn" style="background:var(--accent-soft);color:var(--accent)" onclick="A.ntVoice()" aria-label="Ditar a tarefa" ${n.busy || p ? 'disabled' : ''}>${svg('mic', 22)}</button></div>${inner}</div>`;
 }
 
@@ -1291,7 +1297,7 @@ function scrTarefas() {
   const inCat = t => !cf || t.cat === cf;
   const act = activeTasks().filter(inCat);
   const loose = act.filter(t => !quadOf(t));
-  const chip = t => `<button class="tk" onclick="A.openProject('${t.id}')">${cdot(taskCat(t))}${h(t.title || 'Sem título')}<span>${h(taskSub(t))}</span></button>`;
+  const chip = t => { const ab = xpOn() ? ageBonus(t) : 0; return `<button class="tk" onclick="A.openProject('${t.id}')">${cdot(taskCat(t))}${h(t.title || 'Sem título')}<span>${h(taskSub(t))}${ab >= 3 ? `<em class="agev">vale ${10 + ab} pts</em>` : ''}</span></button>`; };
   const quad = k => { const list = act.filter(t => quadOf(t) === k); return `<div class="quad ${k}"><p class="qt">${QUADS[k][0]}</p><p class="qs">${QUADS[k][1]}</p>${list.map(chip).join('') || '<p class="qs" style="margin-top:8px">Nada aqui.</p>'}${k === 'q4' && list.length ? '<p class="qs" style="margin-top:6px">Vai pro "Talvez um dia" em 7 dias, sem culpa.</p>' : ''}</div>`; };
   const sug = S.settings.prioSuggest !== false ? suggestThree() : [];
   const someday = S.projects.filter(t => !t.done && t.someday && inCat(t));
@@ -1681,7 +1687,7 @@ const FOCUS_KEY = 'focus_state';
 const PREP = ['Água por perto e banheiro antes', 'Só uma aba ou janela aberta', 'Celular virado ou longe da mão'];
 const RING_C = 2 * Math.PI * 104;
 const fmtClock = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${pad(Math.floor(t / 60))}:${pad(t % 60)}`; };
-function saveFocus() { try { if (S.focus) localStorage.setItem(FOCUS_KEY, JSON.stringify(S.focus)); else localStorage.removeItem(FOCUS_KEY); } catch (e) { /* sem armazenamento */ } }
+function saveFocus() { try { if (S.focus) localStorage.setItem(FOCUS_KEY, JSON.stringify(S.focus)); else localStorage.removeItem(FOCUS_KEY); } catch (e) { /* sem armazenamento */ } later('live', syncLive, 150); }
 function loadFocus() {
   try { S.focus = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null'); } catch (e) { S.focus = null; }
   if (S.focus && S.focus.phase === 'run' && S.focus.end <= Date.now()) S.focus.phase = S.focus.mode === 'pausa' ? 'breakdone' : 'done';
@@ -1861,6 +1867,8 @@ function focusSettingsCard() {
     <div class="setrow"><div class="lb">Som ao terminar</div>${sw(soundOn, 'Som ao terminar', "A.setFocusOpt('focusSound')")}</div>
     <div class="setrow"><div class="lb">Não perturbe durante o foco<div class="small" style="font-weight:500">Silencia os outros apps e desliga sozinho no fim. Ligações e exceções do seu Não perturbe continuam.</div></div>${sw(!!s.focusDnd, 'Não perturbe durante o foco', 'A.setFocusDnd()')}</div>
     <div class="setrow"><div class="lb">Aviso na metade do bloco<div class="small" style="font-weight:500">Só vibra. Liga sozinho quando você chama alguém para focar junto.</div></div>${sw(!!s.focusHalf, 'Aviso na metade do bloco', "A.setFocusOpt('focusHalf')")}</div>
+    <div class="setrow"><div class="lb">Tela acesa no foco e na rotina<div class="small" style="font-weight:500">Não apaga enquanto o tempo corre</div></div>${sw(s.keepAwake !== false, 'Tela acesa no foco e na rotina', "A.setLiveOpt('keepAwake')")}</div>
+    <div class="setrow"><div class="lb">Tempo na barra de notificações<div class="small" style="font-weight:500">Contagem regressiva do foco e da rotina</div></div>${sw(s.liveTimer !== false, 'Tempo na barra de notificações', "A.setLiveOpt('liveTimer')")}</div>
     <div class="setrow"><div class="lb">Aviso 2 min antes do fim<div class="small" style="font-weight:500">Só vibra</div></div>${sw(!!s.focusWarn, 'Aviso 2 min antes do fim', "A.setFocusOpt('focusWarn')")}</div>
     <div class="setrow"><div class="lb">Som: sino</div><button class="ghost mini" onclick="A.testSound()">Testar</button></div></div>`;
 }
@@ -2166,12 +2174,16 @@ function focusRing(frac, center) {
 }
 const discMode = () => S.settings.focusVisual === 'disco';
 
-// ----- Rotina guiada (um passo por vez, com tempo) -----
+// ----- Rotina guiada (um passo por vez, com tempo, voz e avanço automático) -----
+// S.rplay = { rid, i, phase: 'run'|'paused'|'done', list: [{ t, m, o }], total, stepEnd, left, startedAt, skipped, doneN, rang, native }
+// list é a lista desta vez: o = índice do passo na rotina (-1 = passo incluído só nesta vez).
 const RPLAY_KEY = 'rplay_state';
-function saveRplay() { try { if (S.rplay) localStorage.setItem(RPLAY_KEY, JSON.stringify(S.rplay)); else localStorage.removeItem(RPLAY_KEY); } catch (e) { /* sem armazenamento */ } }
+function saveRplay() { try { if (S.rplay) localStorage.setItem(RPLAY_KEY, JSON.stringify(S.rplay)); else localStorage.removeItem(RPLAY_KEY); } catch (e) { /* sem armazenamento */ } later('live', syncLive, 150); }
 function loadRplay() {
   try { S.rplay = JSON.parse(localStorage.getItem(RPLAY_KEY) || 'null'); } catch (e) { S.rplay = null; }
-  if (S.rplay && !S.routines.find(r => r.id === S.rplay.rid)) S.rplay = null;
+  const r = S.rplay && S.routines.find(x => x.id === S.rplay.rid);
+  if (!r) { S.rplay = null; return; }
+  if (!S.rplay.list) { const m = stepMins(r); S.rplay.list = r.steps.map((t, k) => ({ t, m: m[k], o: k })); } // estado salvo pela 2.0
 }
 function stepMins(r) {
   const n = r.steps.length || 1;
@@ -2179,22 +2191,56 @@ function stepMins(r) {
   const per = m ? Math.max(1, Math.round(Number(m[0]) / n)) : 3;
   return r.steps.map((_, i) => { const v = Number((r.stepMin || [])[i]); return v > 0 ? Math.round(v) : per; });
 }
-const rpLeft = p => p.stepEnd - Date.now();
+const rpLeft = p => (p.phase === 'paused' ? p.left : p.stepEnd - Date.now());
+const rpVoice = () => S.settings.rVoice !== false;
+const rpAuto = () => !!S.settings.rAuto;
+const minTxt = m => `${m} ${m === 1 ? 'minuto' : 'minutos'}`;
+function rpSay(text) { if (rpVoice()) N.speak(text); }
 async function rpSchedule() {
   const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid);
   if (!p || !r || p.phase !== 'run') { await N.cancelRoutineStep(); return; }
   let ok = false;
   if (S.settings.focusSound !== false) {
-    try { ok = await N.scheduleRoutineStep({ at: p.stepEnd, title: `Tempo do passo: ${r.steps[p.i]}`, body: `${r.title}. Toque em Feito quando terminar.`, mode: focusSoundMode() }); } catch (e) { ok = false; }
+    const steps = [];
+    if (rpAuto()) {
+      let at = p.stepEnd;
+      for (let k = p.i + 1; k <= p.list.length; k++) {
+        const nx = p.list[k];
+        steps.push(nx ? { at, title: `Agora: ${nx.t}`, body: `${r.title} · passo ${k + 1} de ${p.list.length} · ${minTxt(nx.m)}` } : { at, title: `${r.title}: rotina concluída`, body: 'Boa! Pode fechar a rotina.' });
+        if (nx) at += nx.m * 60000;
+      }
+    } else steps.push({ at: p.stepEnd, title: `Tempo do passo: ${p.list[p.i].t}`, body: `${r.title}. Toque em Feito quando terminar.` });
+    try { ok = await N.scheduleRoutineSteps(steps, focusSoundMode()); } catch (e) { ok = false; }
   }
   if (S.rplay === p) { p.native = ok; saveRplay(); }
+}
+// Avança sozinho quando o tempo do passo acaba (também alcança o que passou com o app fechado).
+function rpAutoAdvance() {
+  const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid);
+  if (!p || !r || p.phase !== 'run' || !rpAuto()) return false;
+  let moved = false;
+  const run = runOf(r);
+  while (p.phase === 'run' && p.stepEnd <= Date.now()) {
+    const cur = p.list[p.i];
+    if (cur.o >= 0) run.checks[cur.o] = true;
+    p.doneN++; moved = true;
+    if (p.i + 1 >= p.list.length) { p.phase = 'done'; p.doneAt = p.stepEnd; break; }
+    p.i++; p.total = p.list[p.i].m * 60000; p.stepEnd += p.total; p.rang = false;
+  }
+  if (!moved) return false;
+  persist('routines', r, true); saveRplay();
+  if (p.phase === 'done') { clearInterval(A._riv); N.cancelRoutineStep(); logRoutine(r, false); rpSay('Rotina concluída. Boa!'); }
+  else rpSay(`${p.list[p.i].t}. ${minTxt(p.list[p.i].m)}.`);
+  return true;
 }
 function rpTick() {
   clearInterval(A._riv);
   if (!S.rplay || S.rplay.phase !== 'run') return;
+  if (rpAutoAdvance()) render();
   A._riv = setInterval(() => {
     const p = S.rplay;
     if (!p || p.phase !== 'run') { clearInterval(A._riv); return; }
+    if (rpAutoAdvance()) { if (S.tab === 'rotina') render(); return; }
     const left = rpLeft(p);
     const el = document.getElementById('rtime');
     if (el) { el.textContent = left >= 0 ? fmtClock(left) : '+' + fmtClock(-left); el.classList.toggle('over', left < 0); }
@@ -2203,6 +2249,8 @@ function rpTick() {
       p.rang = true; saveRplay();
       try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) { /* sem vibração */ }
       if (!p.native && S.settings.focusSound !== false) chime();
+      const nx = p.list[p.i + 1];
+      rpSay(`Tempo do passo acabou. ${nx ? 'Depois: ' + nx.t + '.' : 'É o último.'}`);
       const o = document.getElementById('rover'); if (o) o.hidden = false;
     }
   }, 1000);
@@ -2223,27 +2271,102 @@ function scrRotinaPlay() {
     const took = Math.max(1, Math.round((p.doneAt - p.startedAt) / 60000));
     return { raw: `<div class="focus">${head('Rotina concluída')}
       ${focusRing(1, `${svg('check', 34, 2.4)}<p style="margin:0;font-size:20px;font-weight:800">Feita em ${took} min</p>`)}
-      <p class="muted2" style="text-align:center;margin-top:16px">${p.doneN} de ${r.steps.length} passos feitos${p.skipped.length ? `, ${p.skipped.length} ${p.skipped.length === 1 ? 'pulado' : 'pulados'}` : ''}.</p>
+      <p class="muted2" style="text-align:center;margin-top:16px">${p.doneN} de ${p.list.length} passos feitos${p.skipped.length ? `, ${p.skipped.length} ${p.skipped.length === 1 ? 'pulado' : 'pulados'}` : ''}.</p>
       <button class="fbtn" style="width:100%;margin-top:14px;height:54px;font-size:16px" onclick="A.rplayClose()">Voltar para a rotina</button></div>` };
   }
-  const mins = stepMins(r);
-  const left = rpLeft(p), over = left < 0;
-  const rest = mins.slice(p.i + 1).reduce((a, b) => a + b, 0);
-  const endAt = hm(Math.max(Date.now(), p.stepEnd) + rest * 60000);
-  const after = r.steps.slice(p.i + 1).map((s, k) => `<div class="rnext"><span>${h(s)}</span><span class="muted2">${mins[p.i + 1 + k]} min</span></div>`).join('');
-  return { raw: `<div class="focus">${head(`Passo ${p.i + 1} de ${r.steps.length} · termina por volta de ${endAt}`)}
-    <div class="rdots">${r.steps.map((_, k) => `<i class="${k < p.i ? (p.skipped.includes(k) ? 'skip' : 'on') : k === p.i ? 'cur' : ''}"></i>`).join('')}</div>
-    <p class="rstep">${h(r.steps[p.i])}</p>
+  const cur = p.list[p.i];
+  const left = rpLeft(p), over = left < 0, paused = p.phase === 'paused';
+  const rest = p.list.slice(p.i + 1).reduce((a, b) => a + b.m, 0);
+  const endAt = hm(Math.max(Date.now(), paused ? Date.now() + p.left : p.stepEnd) + rest * 60000);
+  const after = p.list.slice(p.i + 1).map(x => `<div class="rnext"><span>${h(x.t)}${x.o < 0 ? ' <em class="muted2" style="font-style:normal">(só hoje)</em>' : ''}</span><span class="muted2">${x.m} min</span></div>`).join('');
+  const add = S.rAdd
+    ? `<div class="fcard"><p class="eyebrow">Incluir passo, só nesta vez</p><div class="row mt"><input class="grow" type="text" id="rAddT" placeholder="O que fazer" onkeydown="if(event.key==='Enter')A.rplayAddStep()"><select id="rAddM" style="width:84px" aria-label="Minutos">${[1, 2, 3, 5, 10, 15].map(m => `<option value="${m}" ${m === 2 ? 'selected' : ''}>${m} min</option>`).join('')}</select></div><div class="row mt" style="gap:10px"><button class="outline grow" onclick="A.rplayAddToggle()">Cancelar</button><button class="fbtn grow" onclick="A.rplayAddStep()">Incluir depois deste</button></div></div>`
+    : '';
+  const sub = paused ? 'Pausada' : `Passo ${p.i + 1} de ${p.list.length} · termina por volta de ${endAt}`;
+  return { raw: `<div class="focus">${head(sub)}
+    <div class="rdots">${p.list.map((_, k) => `<i class="${k < p.i ? (p.skipped.includes(k) ? 'skip' : 'on') : k === p.i ? 'cur' : ''}"></i>`).join('')}</div>
+    <p class="rstep">${h(cur.t)}</p>
     <div class="discwrap">${discSvg(Math.max(0, left) / p.total, 'rdisc')}</div>
     <p class="ftime rtime ${over ? 'over' : ''}" id="rtime">${over ? '+' + fmtClock(-left) : fmtClock(left)}</p>
-    <p class="muted2" id="rover" ${over ? '' : 'hidden'} style="text-align:center;margin:4px 0 0">Passou do tempo, sem problema. Toque em Feito quando terminar.</p>
+    <p class="muted2" id="rover" ${over && !rpAuto() ? '' : 'hidden'} style="text-align:center;margin:4px 0 0">Passou do tempo, sem problema. Toque em Feito quando terminar.</p>
     <div class="fctl"><button class="outline side" onclick="A.rplayPlus()">+1 min</button><button class="fbtn main" onclick="A.rplayDone()" aria-label="Feito, próximo passo">${svg('check', 30, 2.6)}</button><button class="outline side" onclick="A.rplaySkip()">Pular</button></div>
-    ${after ? `<p class="eyebrow" style="margin:22px 4px 0">Depois</p><div class="fcard" style="padding:4px 16px">${after}</div>` : '<p class="muted2" style="text-align:center;margin-top:18px">Último passo.</p>'}
+    <div class="rtools"><button class="linkbtn" onclick="A.${paused ? 'rplayResume' : 'rplayPause'}()">${paused ? 'Continuar' : 'Pausar'}</button><button class="linkbtn" onclick="A.rplayAddToggle()">+ Incluir passo</button><button class="linkbtn" onclick="A.rplayVoice()">Voz: ${rpVoice() ? 'ligada' : 'desligada'}</button></div>
+    ${add}
+    ${after ? `<p class="eyebrow" style="margin:22px 4px 0">Depois${rpAuto() ? ' · avança sozinho' : ''}</p><div class="fcard" style="padding:4px 16px">${after}</div>` : '<p class="muted2" style="text-align:center;margin-top:18px">Último passo.</p>'}
   </div>` };
 }
 
+// ----- Tela acesa e tempo na barra de notificações (foco e rotina) -----
+function syncLive() {
+  const f = S.focus, p = S.rplay, st = S.settings || {};
+  const fRun = f && ['run', 'paused'].includes(f.phase), pRun = p && ['run', 'paused'].includes(p.phase);
+  N.keepAwake(st.keepAwake !== false && ((f && f.phase === 'run') || (p && p.phase === 'run')));
+  if (st.liveTimer === false || (!fRun && !pRun)) { N.hideCountdown(); return; }
+  if (fRun) {
+    const pausa = f.mode === 'pausa', paused = f.phase === 'paused';
+    const end = paused ? Date.now() + f.left : f.end;
+    N.showCountdown({ title: pausa ? 'Pausa' : 'Bloco de foco', text: paused ? `Pausado · faltam ${fmtClock(f.left)}` : (f.label || (pausa ? 'Levante e beba água' : 'Foco')), end, paused, hideAt: paused ? 0 : f.end + 60000 });
+    return;
+  }
+  const r = S.routines.find(x => x.id === p.rid), cur = p.list && p.list[p.i];
+  if (!r || !cur) { N.hideCountdown(); return; }
+  const paused = p.phase === 'paused';
+  N.showCountdown({ title: `${r.title} · passo ${p.i + 1} de ${p.list.length}`, text: paused ? `Pausada · ${cur.t}` : cur.t, end: paused ? Date.now() + p.left : p.stepEnd, paused, hideAt: paused ? 0 : p.stepEnd + 30 * 60000 });
+}
+
+// ----- Calendário da semana: compromissos, tarefas e lembretes juntos (ideia do TickTick) -----
+function calDays() {
+  const out = [], d = new Date(); d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 7; i++) { out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+  return out;
+}
+function calItems(day) {
+  const k = todayKey(day), items = [];
+  const evs = [...(S.events || []), ...(S.eventsWeek || [])];
+  const seen = new Set();
+  for (const e of evs) {
+    if (seen.has(e.id + ':' + e.start) || todayKey(new Date(e.start)) !== k) continue;
+    seen.add(e.id + ':' + e.start);
+    items.push({ kind: 'ev', at: e.allDay ? null : e.start, title: e.title, sub: e.allDay ? 'Dia todo' : `até ${hm(e.end)}${e.location ? ' · ' + e.location : ''}` });
+  }
+  for (const t of activeTasks()) if (t.deadline === k) items.push({ kind: 'task', at: t.time ? atTime(day, t.time).getTime() : null, title: t.title, id: t.id, cat: taskCat(t), sub: [t.place, t.rep ? '↻ ' + repLabel(t.rep) : ''].filter(Boolean).join(' · ') });
+  for (const r of S.reminders) if (!r.done && !r.taskId && r.at && String(r.at).slice(0, 10) === k) items.push({ kind: 'rem', at: new Date(r.at).getTime(), title: r.title, sub: 'Lembrete' });
+  return items.sort((a, b) => (a.at === null ? -1 : a.at) - (b.at === null ? -1 : b.at));
+}
+function calRow(x) {
+  const time = x.at === null ? '<span class="ctime muted">—</span>' : `<span class="ctime">${hm(x.at)}</span>`;
+  const dot = x.kind === 'ev' ? '<span class="cdot ev"></span>' : x.kind === 'rem' ? `<span class="cdot rem">${svg('lembretes', 12, 2.4)}</span>` : `<span class="cdot" style="background:${h((x.cat && x.cat.color) || 'var(--accent)')}"></span>`;
+  const body = `<span class="ctit">${h(x.title)}${x.sub ? `<span class="small">${h(x.sub)}</span>` : ''}</span>`;
+  if (x.kind === 'task') return `<div class="crow">${time}${dot}<button class="cbody" onclick="A.openProject('${x.id}')">${body}</button><button class="icon" onclick="A.calMoveOpen('${x.id}')" aria-label="Mudar o dia de ${h(x.title)}">${svg('semana', 18)}</button></div>`;
+  return `<div class="crow">${time}${dot}<div class="cbody">${body}</div></div>`;
+}
+function calLabel(d, i) {
+  const wd = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+  return i === 0 ? `Hoje · ${wd} ${d.getDate()}` : i === 1 ? `Amanhã · ${wd} ${d.getDate()}` : cap(d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', ''));
+}
+function scrCalendario() {
+  const days = calDays();
+  const late = activeTasks().filter(t => /^\d{4}-\d{2}-\d{2}$/.test(t.deadline || '') && t.deadline < todayKey());
+  const strip = `<div class="cstrip">${days.map((d, i) => { const n = calItems(d).length; return `<a class="cday ${i === 0 ? 'on' : ''}" href="#cal-${todayKey(d)}"><span>${d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3)}</span><b>${d.getDate()}</b><i>${n ? '•'.repeat(Math.min(3, n)) : ''}</i></a>`; }).join('')}</div>`;
+  let b = strip;
+  if (S.calPerm !== 'granted') b += `<div class="card row"><div class="grow small">Conecte a agenda do celular para ver seus compromissos aqui.</div>${N.isNative() ? '<button class="mini" onclick="A.connectCalendar()">Conectar</button>' : ''}</div>`;
+  if (late.length) b += `<div class="card"><h2>Atrasadas <span class="small">${late.length}</span></h2><p class="hint" style="margin-top:0">Sem culpa: escolha um dia novo.</p>${late.map(t => calRow({ kind: 'task', at: null, title: t.title, id: t.id, cat: taskCat(t), sub: 'era ' + fmtDateKey(t.deadline) })).join('')}</div>`;
+  b += days.map((d, i) => {
+    const k = todayKey(d), items = calItems(d);
+    return `<div class="card cdaycard" id="cal-${k}"><div class="row"><h2 class="grow" style="margin:0">${calLabel(d, i)}</h2><button class="icon" onclick="A.calAdd('${k}')" aria-label="Nova tarefa para ${calLabel(d, i)}">${svg('plus', 20, 2.2)}</button></div>
+      <div class="mt">${items.map(calRow).join('') || '<p class="small" style="margin:0">Livre.</p>'}</div></div>`;
+  }).join('');
+  if (S.calMove) {
+    const t = S.projects.find(x => x.id === S.calMove);
+    if (t) b += `<div class="scrim" onclick="A.calMoveOpen(null)"></div><div class="sheet"><p class="eyebrow" style="margin:0 0 4px">Mudar o dia</p><h2 style="margin:0 0 12px">${h(t.title)}</h2>
+      <div class="pills">${days.map((d, i) => `<button class="pill ${t.deadline === todayKey(d) ? 'on' : ''}" onclick="A.calMoveTo('${todayKey(d)}')">${i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' }).replace('.', '')}</button>`).join('')}<button class="pill" onclick="A.calMoveTo('')">Sem data</button></div>
+      <button class="ghost mt" style="width:100%" onclick="A.calMoveOpen(null)">Cancelar</button></div>`;
+  }
+  return ['Calendário', 'Próximos 7 dias', b, { back: 'A.back()' }];
+}
+
 // ----- Pontos, nível, sequência e recompensas -----
-const XP_RULES = [['Tarefa concluída', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
+const XP_RULES = [['Dia perfeito: prioridades e remédios do dia feitos', 20], ['Tarefa concluída (+1 a cada 3 dias parada, até +10)', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
 const DEFAULT_REWARDS = [['Um episódio de série', 40], ['Café ou doce especial', 60], ['Uma hora de jogo sem culpa', 100]];
 const xpLvlAt = n => 50 * n * (n - 1); // pontos para chegar ao nível n: 0, 100, 300, 600, 1000…
 const xpOn = () => S.settings.xpOn !== false;
@@ -2280,7 +2403,22 @@ function pagePts(p) {
   const items = (p.items || []).filter(x => x.d).length;
   return 5 * tops + 2 * doses + 2 * Math.min(20, (p.done || []).length) + body + (p.mood ? 1 : 0) + 10 * (p.focusN || 0) + 2 * items;
 }
-function xpPage(p, silent = false) { if (S.xp && p && p.id) xpSet('dia:' + p.id, pagePts(p), p.id, silent); }
+// Dia perfeito: as prioridades do dia feitas e todos os remédios e água marcados.
+function perfectDay(p) {
+  const tops = (p.top3 || []).filter(t => (t.t || '').trim());
+  if (!tops.length || !tops.every(t => t.d)) return false;
+  const doses = dosesForDay(), tk = p.doses || {};
+  return doses.every(d => tk[d.key]);
+}
+function xpPage(p, silent = false) {
+  if (!S.xp || !p || !p.id) return;
+  xpSet('dia:' + p.id, pagePts(p), p.id, silent);
+  if (p.id !== todayKey()) return;
+  const d = xpSet('perfeito:' + p.id, perfectDay(p) ? 20 : 0, p.id, true);
+  if (d > 0 && !silent && xpOn()) { celebrate(); popPoints(20); setTimeout(() => toast('Dia perfeito: prioridades e remédios em dia. +20 pontos', 3500), 80); }
+}
+// Tarefa parada vale mais (ideia do Habitica, sem punição): +1 ponto a cada 3 dias, até +10.
+const ageBonus = t => Math.max(0, Math.min(10, Math.floor((Date.now() - (t.createdAt || Date.now())) / (3 * DAY))));
 const stepXp = (t, i) => xpSet(`s:${t.id}:${i}`, t.steps[i] && t.steps[i].d ? 2 : 0);
 function xpStreak() {
   const per = {};
@@ -2406,7 +2544,7 @@ function aiNudge() {
 const SCREENS = {
   hoje: scrHoje, remedios: scrRemedios, rotinas: scrRotinas, assistente: scrAssistente, guia: scrGuia, ajustes: scrAjustes, foco: scrFoco,
   semana: scrSemana, tarefas: scrTarefas, ideias: scrIdeias, habitos: scrHabitos, lembretes: scrLembretes, agenda: scrAgenda,
-  rotina: scrRotinaPlay, pontos: scrPontos, busca: scrBusca,
+  rotina: scrRotinaPlay, pontos: scrPontos, busca: scrBusca, calendario: scrCalendario,
 };
 let lastBars = null;
 function applyTheme() {
@@ -2440,7 +2578,7 @@ function render() {
 const A = {
   tab(t) {
     if (t === 'kit') return A.openKit();
-    const over = ['assistente', 'foco', 'ajustes', 'pontos', 'busca'];
+    const over = ['assistente', 'foco', 'ajustes', 'pontos', 'busca', 'calendario'];
     if (over.includes(t) && !over.includes(S.tab)) S.prevTab = S.tab;
     S.tab = t; S.drawer = false;
     if (t === 'ajustes') refreshAlarmVol();
@@ -2702,40 +2840,65 @@ const A = {
     try { const r = await N.shareText(txt, { title: 'Como foi o foco', dialogTitle: 'Contar como foi' }); if (r === 'copied') toast('Mensagem copiada.'); } catch (e) { /* cancelou */ }
   },
   async focusVisual() { S.settings.focusVisual = discMode() ? 'anel' : 'disco'; await db.put('settings', S.settings); render(); },
-  // 2.0: rotina guiada
+  // Rotina guiada
   async rplayStart() {
     const r = A._r(); if (!r || !r.steps.length) return;
     primeAudio();
     const mins = stepMins(r);
     const run = runOf(r); run.checks = []; run.minimal = false; persist('routines', r, true);
-    S.rplay = { rid: r.id, i: 0, phase: 'run', total: mins[0] * 60000, stepEnd: Date.now() + mins[0] * 60000, startedAt: Date.now(), skipped: [], doneN: 0 };
-    saveRplay(); S.prevTab = 'rotinas'; S.tab = 'rotina'; S.drawer = false;
-    render(); window.scrollTo(0, 0); rpTick(); await rpSchedule();
+    const list = r.steps.map((t, k) => ({ t, m: mins[k], o: k }));
+    S.rplay = { rid: r.id, i: 0, phase: 'run', list, total: list[0].m * 60000, stepEnd: Date.now() + list[0].m * 60000, startedAt: Date.now(), skipped: [], doneN: 0 };
+    S.rAdd = false; saveRplay(); S.prevTab = 'rotinas'; S.tab = 'rotina'; S.drawer = false;
+    render(); window.scrollTo(0, 0); rpTick();
+    rpSay(`${r.title}. Primeiro: ${list[0].t}. ${minTxt(list[0].m)}.`);
+    await rpSchedule();
   },
   async rplayNext(done) {
-    const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid); if (!r || p.phase !== 'run') return;
-    const run = runOf(r);
-    if (done) { run.checks[p.i] = true; p.doneN++; } else p.skipped.push(p.i);
+    const p = S.rplay, r = p && S.routines.find(x => x.id === p.rid); if (!r || p.phase === 'done') return;
+    const run = runOf(r), cur = p.list[p.i];
+    if (done) { if (cur.o >= 0) run.checks[cur.o] = true; p.doneN++; } else p.skipped.push(p.i);
     persist('routines', r, true);
-    if (p.i + 1 >= r.steps.length) {
+    if (p.i + 1 >= p.list.length) {
       p.phase = 'done'; p.doneAt = Date.now(); clearInterval(A._riv); saveRplay(); await N.cancelRoutineStep();
+      rpSay('Rotina concluída. Boa!');
       await logRoutine(r, false); render(); return;
     }
-    const mins = stepMins(r);
-    p.i++; p.total = mins[p.i] * 60000; p.stepEnd = Date.now() + p.total; p.rang = false;
-    saveRplay(); render(); rpTick(); await rpSchedule();
+    p.i++; p.total = p.list[p.i].m * 60000; p.stepEnd = Date.now() + p.total; p.rang = false; p.phase = 'run';
+    S.rAdd = false; saveRplay(); render(); rpTick();
+    rpSay(`${p.list[p.i].t}. ${minTxt(p.list[p.i].m)}.`);
+    await rpSchedule();
   },
   rplayDone() { return A.rplayNext(true); },
   rplaySkip() { return A.rplayNext(false); },
   async rplayPlus() {
-    const p = S.rplay; if (!p || p.phase !== 'run') return;
-    if (p.stepEnd < Date.now()) { p.stepEnd = Date.now() + 60000; p.total = 60000; } else { p.stepEnd += 60000; p.total += 60000; }
+    const p = S.rplay; if (!p || p.phase === 'done') return;
+    if (p.phase === 'paused') { p.left = Math.max(0, p.left) + 60000; p.total = Math.max(p.total, p.left); }
+    else if (p.stepEnd < Date.now()) { p.stepEnd = Date.now() + 60000; p.total = 60000; }
+    else { p.stepEnd += 60000; p.total += 60000; }
     p.rang = false; saveRplay(); render(); rpTick(); await rpSchedule();
   },
-  async rplayExit() { if (S.rplay && S.rplay.phase === 'run' && !confirm('Sair da rotina guiada? O que você já fez fica marcado.')) return; await A.rplayClose(); },
+  async rplayPause() {
+    const p = S.rplay; if (!p || p.phase !== 'run') return;
+    p.left = p.stepEnd - Date.now(); p.phase = 'paused'; clearInterval(A._riv); saveRplay(); await N.cancelRoutineStep(); N.stopSpeak(); render();
+  },
+  async rplayResume() {
+    const p = S.rplay; if (!p || p.phase !== 'paused') return;
+    primeAudio(); p.stepEnd = Date.now() + p.left; p.phase = 'run'; saveRplay(); render(); rpTick(); await rpSchedule();
+  },
+  rplayAddToggle() { S.rAdd = !S.rAdd; render(); const el = document.getElementById('rAddT'); if (el) el.focus(); },
+  async rplayAddStep() {
+    const p = S.rplay; if (!p) return;
+    const t = (document.getElementById('rAddT').value || '').trim(); if (!t) return toast('Escreva o passo');
+    const m = Math.max(1, Number(document.getElementById('rAddM').value) || 2);
+    p.list.splice(p.i + 1, 0, { t, m, o: -1 });
+    S.rAdd = false; saveRplay(); render(); toast('Incluído só nesta vez'); await rpSchedule();
+  },
+  async rplayVoice() { S.settings.rVoice = !rpVoice(); await db.put('settings', S.settings); if (!rpVoice()) N.stopSpeak(); render(); },
+  async rplayAuto() { S.settings.rAuto = !rpAuto(); await db.put('settings', S.settings); render(); if (S.rplay && S.rplay.phase === 'run') await rpSchedule(); },
+  async rplayExit() { if (S.rplay && S.rplay.phase !== 'done' && !confirm('Sair da rotina guiada? O que você já fez fica marcado.')) return; await A.rplayClose(); },
   async rplayClose() {
     const rid = S.rplay && S.rplay.rid;
-    clearInterval(A._riv); S.rplay = null; saveRplay(); await N.cancelRoutineStep();
+    clearInterval(A._riv); S.rplay = null; S.rAdd = false; saveRplay(); await N.cancelRoutineStep(); N.stopSpeak();
     S.tab = 'rotinas'; S.openRoutine = rid || null; S.editRoutine = false; render(); window.scrollTo(0, 0);
   },
   setStepMin(i, v) { const r = A._r(); r.stepMin = stepMins(r); r.stepMin[i] = Math.max(1, Math.min(180, Math.round(Number(v) || 1))); persist('routines', r, true); },
@@ -2768,6 +2931,16 @@ const A = {
   async searchPage(k) { S.tab = 'hoje'; await A.openPage(k); },
   searchRoutine(id) { A.tab('rotinas'); A.openRoutine(id); },
   searchGuide() { S.guideQuery = (S.search && S.search.q || '').trim(); S.guideFilter = 'all'; S.tab = 'guia'; S.drawer = false; render(); window.scrollTo(0, 0); },
+  async setLiveOpt(k) { S.settings[k] = S.settings[k] === false; await db.put('settings', S.settings); render(); syncLive(); },
+  // Calendário da semana
+  calMoveOpen(id) { S.calMove = id; render(); },
+  async calMoveTo(k) {
+    const t = S.projects.find(x => x.id === S.calMove); S.calMove = null;
+    if (!t) return render();
+    t.deadline = k || ''; await db.put('projects', t); await syncTaskAlarm(t); await tidyTasks(); await syncTopForTask(t);
+    render(); toast(k ? `Movida para ${k === todayKey() ? 'hoje' : fmtDateKey(k)}` : 'Ficou sem data');
+  },
+  calAdd(k) { A.newTask(); S.newTask.day = k; render(); const el = document.getElementById('ntTitle'); if (el) el.focus(); },
   // Tutorial guiado (página no site)
   openTutorial() { A.tutorialSeen(); S.drawer = false; render(); window.open(TUTORIAL_URL, '_blank'); },
   async tutorialSeen(dismiss = false) {
@@ -2859,15 +3032,15 @@ const A = {
     const title = (n.title || '').trim(); if (!title) return toast('Escreva a tarefa');
     const local = parseCapture(title);
     if (!hasAI() || S.settings.autoSlice === false) {
-      const c = mergeCapture(local, null, n.cat);
+      const c = withDay(mergeCapture(local, null, n.cat), n);
       const t = applyCapture(newTaskObj(c.title), c);
       return A._addTask(t, true).then(() => { if (c.date || c.time) toast(`Anotado: ${whenLabel(c.date, c.time)}`); });
     }
     n.busy = true; n.error = ''; render();
-    try { n.plan = await A._plan(title, 'novo'); n.cap = mergeCapture(local, n.plan, n.cat); } catch (e) { n.error = 'A IA não respondeu: ' + (e.message || e); }
+    try { n.plan = await A._plan(title, 'novo'); n.cap = withDay(mergeCapture(local, n.plan, n.cat), n); } catch (e) { n.error = 'A IA não respondeu: ' + (e.message || e); }
     n.busy = false; render();
   },
-  async ntPlain() { const n = S.newTask; const title = ((n && n.title) || '').trim(); if (!title) return; const c = mergeCapture(parseCapture(title), null, n.cat); await A._addTask(applyCapture(newTaskObj(c.title), c), true); },
+  async ntPlain() { const n = S.newTask; const title = ((n && n.title) || '').trim(); if (!title) return; const c = withDay(mergeCapture(parseCapture(title), null, n.cat), n); await A._addTask(applyCapture(newTaskObj(c.title), c), true); },
   async ntFiner() {
     const n = S.newTask; if (!n || !n.plan) return;
     n.busy = true; render();
@@ -3268,7 +3441,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
@@ -3282,7 +3455,7 @@ async function start() {
   if (S.focus && !S.onb) S.tab = 'foco';
   else if (S.rplay && !S.onb) S.tab = 'rotina';
   render();
-  focusTick(); rpTick();
+  focusTick(); rpTick(); later('live', syncLive, 300);
   if (window.matchMedia) { const mq = window.matchMedia('(prefers-color-scheme: dark)'); const onChange = () => { if ((S.settings.theme || 'auto') === 'auto') applyTheme(); }; if (mq.addEventListener) mq.addEventListener('change', onChange); }
   if (N.isNative()) {
     N.onOpenUrl(handleIncomingUri);
@@ -3305,7 +3478,8 @@ async function start() {
     else if (S.drawer) A.menu(false);
     else if (S.parkOpen) { S.parkOpen = false; render(); }
     else if (S.tab === 'rotina') A.rplayExit();
-    else if (['assistente', 'foco', 'ajustes', 'pontos', 'busca'].includes(S.tab)) A.back();
+    else if (S.calMove) A.calMoveOpen(null);
+    else if (['assistente', 'foco', 'ajustes', 'pontos', 'busca', 'calendario'].includes(S.tab)) A.back();
     else if (S.editRoutine) { S.editRoutine = false; render(); }
     else if (S.openRoutine) A.closeRoutine();
     else if (S.openProject) A.closeProject();

@@ -1,6 +1,8 @@
 package com.cidedson.tdahvidareal;
 
+import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -14,6 +16,10 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
+import android.view.WindowManager;
+
+import java.util.Locale;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -36,6 +42,10 @@ public class AlertaPlugin extends Plugin {
 
     private static final String PREFS = "nao_perturbe";
     private static final int REQ_FIM = 7301;
+    private static final int ID_CRONOMETRO = 7401;
+    private TextToSpeech voz;
+    private boolean vozPronta = false;
+    private String falaPendente = null;
 
     @PluginMethod
     public void criarCanais(PluginCall call) {
@@ -61,6 +71,12 @@ public class AlertaPlugin extends Plugin {
                 if (nm.getNotificationChannel(velho) != null) nm.deleteNotificationChannel(velho);
             }
 
+            NotificationChannel crono = new NotificationChannel("cronometro", "Tempo do foco e da rotina", NotificationManager.IMPORTANCE_LOW);
+            crono.setDescription("Contagem regressiva na barra enquanto o foco ou a rotina guiada estão rodando.");
+            crono.setSound(null, null);
+            crono.enableVibration(false);
+            crono.setShowBadge(false);
+            nm.createNotificationChannel(crono);
             NotificationChannel fixo = new NotificationChannel("fixo", "Próximo (fixo na barra)", NotificationManager.IMPORTANCE_DEFAULT);
             fixo.setDescription("Mostra o próximo remédio ou passo até você concluir. Não toca nem vibra.");
             fixo.setSound(null, null);
@@ -117,6 +133,97 @@ public class AlertaPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Não consegui cancelar os toques: " + e.getMessage());
         }
+    }
+
+    // ---------- Voz da rotina guiada ----------
+
+    @PluginMethod
+    public void falar(PluginCall call) {
+        String texto = call.getString("texto", "");
+        if (texto == null || texto.isEmpty()) { call.resolve(); return; }
+        if (voz == null) {
+            falaPendente = texto;
+            voz = new TextToSpeech(getContext(), status -> {
+                vozPronta = status == TextToSpeech.SUCCESS;
+                if (vozPronta) {
+                    voz.setLanguage(new Locale("pt", "BR"));
+                    if (falaPendente != null) voz.speak(falaPendente, TextToSpeech.QUEUE_FLUSH, null, "fala");
+                    falaPendente = null;
+                }
+            });
+        } else if (vozPronta) {
+            voz.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "fala");
+        } else {
+            falaPendente = texto;
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void pararFala(PluginCall call) {
+        if (voz != null && vozPronta) voz.stop();
+        call.resolve();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (voz != null) { voz.shutdown(); voz = null; vozPronta = false; }
+    }
+
+    // ---------- Tela acesa durante o foco e a rotina ----------
+
+    @PluginMethod
+    public void telaAcesa(PluginCall call) {
+        boolean ligar = Boolean.TRUE.equals(call.getBoolean("ligar", false));
+        Activity act = getActivity();
+        if (act == null) { call.resolve(); return; }
+        act.runOnUiThread(() -> {
+            if (ligar) act.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else act.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
+        call.resolve();
+    }
+
+    // ---------- Contagem regressiva na barra de notificações ----------
+
+    /** { titulo, texto, fim (ms), pausado, some (ms: a notificação some sozinha nesse horário) } */
+    @PluginMethod
+    public void mostrarCronometro(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            long fim = call.getLong("fim", 0L);
+            boolean pausado = Boolean.TRUE.equals(call.getBoolean("pausado", false));
+            long some = call.getLong("some", 0L);
+            Intent abrir = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+            PendingIntent pi = abrir == null ? null : PendingIntent.getActivity(ctx, ID_CRONOMETRO, abrir, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? new Notification.Builder(ctx, "cronometro")
+                : new Notification.Builder(ctx);
+            b.setSmallIcon(R.drawable.ic_stat_tdah)
+                .setContentTitle(call.getString("titulo", "TDAH na Vida Real"))
+                .setContentText(call.getString("texto", ""))
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(!pausado)
+                .setWhen(fim)
+                .setUsesChronometer(!pausado)
+                .setCategory(Notification.CATEGORY_PROGRESS);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) b.setChronometerCountDown(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && some > System.currentTimeMillis()) b.setTimeoutAfter(some - System.currentTimeMillis());
+            if (pi != null) b.setContentIntent(pi);
+            nm.notify(ID_CRONOMETRO, b.build());
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Não consegui mostrar o tempo na barra: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void esconderCronometro(PluginCall call) {
+        NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel(ID_CRONOMETRO);
+        call.resolve();
     }
 
     // ---------- Volume de alarme ----------
