@@ -13,7 +13,7 @@ App Android para tirar a rotina da cabeça. Ele lembra dos remédios e da água 
 
 Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Google Drive de quem usa.
 
-**[Baixar a última versão](../../releases/latest)** · [Novidades](CHANGELOG.md) · [Instalar](#instalar-no-celular) · [Privacidade](#privacidade-e-dados) · [Como funciona](#como-funciona-por-dentro)
+**[Baixar a última versão](../../releases/latest)** · **[Tutorial guiado](https://cidedson.github.io/como-usar/)** · [Novidades](CHANGELOG.md) · [Instalar](#instalar-no-celular) · [Privacidade](#privacidade-e-dados) · [Como funciona](#como-funciona-por-dentro)
 
 > O app ajuda a organizar a rotina, mas não substitui avaliação nem acompanhamento médico ou psicológico. Em crise, ligue 188 (CVV) ou 192 (SAMU).
 

@@ -8,6 +8,7 @@ import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
 const VERSION = '2.0 (navegador)';
+const TUTORIAL_URL = 'https://cidedson.github.io/como-usar/'; // não pode começar com /t: esses links abrem o app (App Links)
 
 // ---------------- Estado ----------------
 const S = {
@@ -507,6 +508,7 @@ const ICONS = {
   busca: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
   pontos: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 2.6 3.9M16 6h2.5a2.5 2.5 0 0 1-2.6 3.9M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
   play: '<path d="M7 5l12 7-12 7z" fill="currentColor"/>',
+  tutorial: '<circle cx="12" cy="12" r="9"/><path d="M10 8.6l5.2 3.4-5.2 3.4z"/>',
   juntos: '<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.4"/><path d="M15.6 14.3A4.6 4.6 0 0 1 21 19"/>',
   semana: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   tarefas: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
@@ -570,7 +572,7 @@ function drawer() {
     <p class="grp">Organizar</p>
     ${item('semana', 'Semana')}${item('tarefas', 'Prioridades', openProj)}${item('ideias', 'Ideias', ideas)}${item('habitos', 'Hábitos')}${item('lembretes', 'Lembretes', remToday ? `${remToday} hoje` : '')}${item('pontos', 'Pontos e recompensas', S.xp && xpOn() ? `nível ${xpLevel()}` : '')}
     <p class="grp">Juntos e aprender</p>
-    ${item('agenda', 'Agenda da casa')}${item('guia', 'Guia · 100 estratégias', '', 'A.openGuide()')}${item('kit', 'Meu kit', favs, "A.openKit()")}
+    ${item('agenda', 'Agenda da casa')}${item('tutorial', 'Como usar (tutorial)', '', 'A.openTutorial()')}${item('guia', 'Guia · 100 estratégias', '', 'A.openGuide()')}${item('kit', 'Meu kit', favs, "A.openKit()")}
     <div class="foot">${item('ajustes', 'Ajustes')}<p class="small" style="margin:6px 14px 0">versão ${h(S.appVersion || VERSION)}</p></div>
   </nav>`;
 }
@@ -937,7 +939,7 @@ function scrHoje() {
   if (!S.viewingPast && S.settings.moodOn !== false) b += moodStrip();
   b += p.bad ? badDay() : meuDiaCard();
   b += maisDoDia();
-  b += aiNudge();
+  b += tutorialNudge() || aiNudge();
   b += daySheet();
   const s = S.settings;
   const right = `<button class="iconbtn" onclick="A.openSearch()" aria-label="Buscar em tudo">${svg('busca')}</button>` + (S.viewingPast ? '' : xpChip()) + (s.driveUri ? `<button class="chip ${s.driveError ? 'warn' : ''}" onclick="A.tab('ajustes')">${svg('cloud', 14, 2.2)}${s.driveError ? 'Backup falhou' : 'Backup ok'}</button>` : '');
@@ -1892,6 +1894,7 @@ function aboutCard() {
     ${updateLine()}
     <p class="hint">Guia, planner, rotinas e assistente para quem tem TDAH. Sem conta e sem servidor: tudo fica neste celular, e o backup vai para o seu Google Drive.</p>
     <p class="hint">O app ajuda a organizar a rotina, mas não substitui avaliação nem acompanhamento médico ou psicológico. Em crise, ligue 188 (CVV) ou 192 (SAMU).</p>
+    <p class="small" style="margin:0 0 6px">Aprenda a usar cada função: ${ext(TUTORIAL_URL, 'tutorial guiado')}</p>
     <p class="small" style="margin:0 0 6px">Código, novidades e versões: ${ext(REPO_URL, 'GitHub')} · ${ext(REPO_URL + '/releases', 'baixar a última versão')}</p>
     <p class="small" style="margin:0">Feito com Capacitor. Fonte Plus Jakarta Sans (licença SIL OFL 1.1).</p></div>`;
 }
@@ -2070,7 +2073,8 @@ function scrOnboarding() {
         <div class="list-item"><div class="grow"><b>Notificações</b><div class="small">Avisos de rotinas, remédios e lembretes</div></div>${S.notif ? st(true) : '<button class="mini" onclick="A.enableNotif()">Permitir</button>'}</div>
         <div class="list-item"><div class="grow"><b>Alarmes na hora exata</b><div class="small">Remédio na hora certa, sem atraso</div></div>${S.exact === 'granted' ? st(true) : '<button class="mini" onclick="A.openExact()">Permitir</button>'}</div>
         <div class="list-item"><div class="grow"><b>Agenda</b><div class="small">Mostra os compromissos e avisa para levar o remédio</div></div>${S.calPerm === 'granted' ? st(true) : '<button class="mini" onclick="A.connectCalendar()">Conectar</button>'}</div>
-        <button class="mt" style="width:100%" onclick="A.onbFinish()">Concluir</button></div>`
+        <button class="mt" style="width:100%" onclick="A.onbFinish()">Concluir</button>
+        <p class="small mt" style="margin-bottom:0">Quer ver como usar cada função? ${tutorialLink('Abra o tutorial guiado')} (uns 10 minutos). Ele também fica no menu ☰.</p></div>`
         : `<div class="card"><p>No navegador não há permissões para dar. No app Android, esta tela pede notificações, alarmes exatos e agenda.</p><button style="width:100%" onclick="A.onbFinish()">Concluir</button></div>`;
       break;
     }
@@ -2388,6 +2392,11 @@ function scrBusca() {
 function keySetup(P) {
   return `<ol class="small" style="padding-left:18px;margin:0 0 10px">${P.howTo.map(x => `<li>${h(x)}</li>`).join('')}</ol>${keyLink(P)}
     <input class="mt" type="text" id="apiKey" placeholder="${h(P.keyHint)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="mt" style="width:100%" onclick="A.saveKey()">Salvar chave</button>`;
+}
+function tutorialLink(label) { return `<a href="${TUTORIAL_URL}" target="_blank" rel="noopener" onclick="A.tutorialSeen()" style="color:var(--accent);font-weight:700">${label} ↗</a>`; }
+function tutorialNudge() {
+  if (S.viewingPast || !S.settings.name || S.settings.tutorialSeen) return '';
+  return `<div class="card ainudge row"><span class="nudgeic">${svg('tutorial', 20)}</span><div class="grow"><b>Como usar o app</b><div class="small" style="margin:0">Tutorial guiado, uns 10 min</div></div><a class="btn-mini" href="${TUTORIAL_URL}" target="_blank" rel="noopener" onclick="A.tutorialSeen()">Abrir</a><button class="icon" onclick="A.tutorialSeen(true)" aria-label="Agora não">×</button></div>`;
 }
 function aiNudge() {
   if (hasAI() || S.viewingPast || !S.settings.name || (S.settings.aiNudgeUntil || 0) > Date.now()) return '';
@@ -2759,6 +2768,14 @@ const A = {
   async searchPage(k) { S.tab = 'hoje'; await A.openPage(k); },
   searchRoutine(id) { A.tab('rotinas'); A.openRoutine(id); },
   searchGuide() { S.guideQuery = (S.search && S.search.q || '').trim(); S.guideFilter = 'all'; S.tab = 'guia'; S.drawer = false; render(); window.scrollTo(0, 0); },
+  // Tutorial guiado (página no site)
+  openTutorial() { A.tutorialSeen(); S.drawer = false; render(); window.open(TUTORIAL_URL, '_blank'); },
+  async tutorialSeen(dismiss = false) {
+    if (S.settings.tutorialSeen) return;
+    S.settings.tutorialSeen = Date.now(); await db.put('settings', S.settings);
+    setTimeout(render, 300);
+    if (dismiss) toast('O tutorial fica no menu ☰ › Como usar');
+  },
   // 2.0: assistente
   async aiNudgeLater() { S.settings.aiNudgeUntil = Date.now() + 14 * DAY; await db.put('settings', S.settings); render(); toast('Fica em Ajustes › Assistente de IA quando quiser'); },
 
