@@ -16,6 +16,9 @@ public class ToqueReceiver extends BroadcastReceiver {
         if (!Toques.ACAO.equals(acao)) return;
         String som = Toques.aoDisparar(context, intent.getIntExtra("id", 0));
         if (som == null) return; // cancelado nesse meio-tempo
+        // No horário de dormir, avisos de remédio e lembrete não tocam (o sino do foco, que a pessoa ligou acordada, toca).
+        // "abre" é o lembrete que começa a higiene do sono: toca mesmo no início do horário de dormir.
+        if ("alarme".equals(som) && Toques.emSilencio(context)) return;
         final PendingResult pr = goAsync();
         Toques.tocar(context.getApplicationContext(), som, pr::finish);
     }

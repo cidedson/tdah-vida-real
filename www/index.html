@@ -423,6 +423,13 @@ input.minin { width: 64px; flex: none; text-align: center; padding-left: 6px; pa
 .cbody { flex: 1; min-width: 0; background: none; box-shadow: none; padding: 0; text-align: left; color: var(--ink); border-radius: 0; font-weight: 600; }
 .ctit { display: flex; flex-direction: column; gap: 1px; }
 .ctit .small { font-weight: 500; margin: 0; }
+
+/* 2.2: água */
+.wbar { height: 12px; border-radius: 6px; background: var(--accent-soft); overflow: hidden; margin-top: 10px; }
+.wbar i { display: block; height: 100%; background: #4a90d9; border-radius: 6px; transition: width .3s; }
+.linkbtn2 { display: inline-block; margin-top: 10px; background: none; box-shadow: none; padding: 4px 0; color: var(--accent); font-weight: 700; font-size: 14px; text-decoration: underline; }
+label.small input { margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .wbar i { transition: none; } }
 </style>
 </head>
 <body>

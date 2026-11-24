@@ -29,7 +29,7 @@ import java.util.Map;
  *   rep "uma": uma vez, em "at" (ms)
  *   rep "dia": todo dia em hora:minuto
  *   rep "semana": toda semana no "dia" (Calendar.DAY_OF_WEEK: 1 = domingo) em hora:minuto
- *   som "alarme" (padrão) ou "sino"
+ *   som "alarme" (padrão), "sino" (foco e rotina guiada) ou "abre" (o lembrete que começa a higiene do sono)
  */
 final class Toques {
     static final String ACAO = "com.cidedson.tdahvidareal.TOQUE";
@@ -125,6 +125,24 @@ final class Toques {
     private static PendingIntent intencao(Context ctx, int id) {
         Intent i = new Intent(ctx, ToqueReceiver.class).setAction(ACAO).putExtra("id", id);
         return PendingIntent.getBroadcast(ctx, id, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    // ---------- Horário de dormir ----------
+    private static final String CFG = "toques_cfg";
+
+    static void salvarSilencio(Context ctx, boolean ligado, int de, int ate) {
+        ctx.getSharedPreferences(CFG, Context.MODE_PRIVATE).edit().putBoolean("ligado", ligado).putInt("de", de).putInt("ate", ate).apply();
+    }
+
+    /** Agora está dentro do horário de dormir? (o intervalo pode passar da meia-noite) */
+    static boolean emSilencio(Context ctx) {
+        SharedPreferences c = ctx.getSharedPreferences(CFG, Context.MODE_PRIVATE);
+        if (!c.getBoolean("ligado", false)) return false;
+        int de = c.getInt("de", 23 * 60), ate = c.getInt("ate", 7 * 60);
+        Calendar agora = Calendar.getInstance();
+        int m = agora.get(Calendar.HOUR_OF_DAY) * 60 + agora.get(Calendar.MINUTE);
+        if (de == ate) return false;
+        return de < ate ? (m >= de && m < ate) : (m >= de || m < ate);
     }
 
     private static SharedPreferences prefs(Context ctx) {

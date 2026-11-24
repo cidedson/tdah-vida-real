@@ -71,6 +71,12 @@ public class AlertaPlugin extends Plugin {
                 if (nm.getNotificationChannel(velho) != null) nm.deleteNotificationChannel(velho);
             }
 
+            // Horário de dormir: aparece na lista, sem som e sem vibrar.
+            NotificationChannel noite = new NotificationChannel("noite", "Avisos no horário de dormir", NotificationManager.IMPORTANCE_LOW);
+            noite.setDescription("Avisos que caem no seu horário de dormir: aparecem, mas não tocam nem vibram.");
+            noite.setSound(null, null);
+            noite.enableVibration(false);
+            nm.createNotificationChannel(noite);
             NotificationChannel crono = new NotificationChannel("cronometro", "Tempo do foco e da rotina", NotificationManager.IMPORTANCE_LOW);
             crono.setDescription("Contagem regressiva na barra enquanto o foco ou a rotina guiada estão rodando.");
             crono.setSound(null, null);
@@ -122,6 +128,13 @@ public class AlertaPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Não consegui agendar o toque: " + e.getMessage());
         }
+    }
+
+    /** { ligado, de, ate }: minutos desde a meia-noite. No intervalo, os toques de alarme não tocam. */
+    @PluginMethod
+    public void horarioSilencio(PluginCall call) {
+        Toques.salvarSilencio(getContext(), Boolean.TRUE.equals(call.getBoolean("ligado", true)), call.getInt("de", 23 * 60), call.getInt("ate", 7 * 60));
+        call.resolve();
     }
 
     @PluginMethod

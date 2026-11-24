@@ -7,7 +7,7 @@ import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, 
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '2.1 (navegador)';
+const VERSION = '2.2 (navegador)';
 const TUTORIAL_URL = 'https://cidedson.github.io/como-usar/'; // não pode começar com /t: esses links abrem o app (App Links)
 
 // ---------------- Estado ----------------
@@ -23,7 +23,7 @@ const S = {
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
   moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
-  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false,
+  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false, waterEdit: false,
 };
 
 // ---------------- Utilidades ----------------
@@ -227,7 +227,7 @@ async function syncDoses() {
   const daily = doses.map(d => {
     const [hour, minute] = d.time.split(':').map(Number);
     const title = d.kind === 'agua' ? `Água: ${d.name}` : `Hora de: ${d.name}`;
-    const body = d.kind === 'agua' ? 'Beba agora e toque em Tomei.' : `Horário das ${d.time}. Toque em Tomei quando tomar.`;
+    const body = d.kind === 'agua' ? `Beba ${waterCopo()} mL e toque em Tomei.` : `Horário das ${d.time}. Toque em Tomei quando tomar.`;
     return { key: d.key, hour, minute, title, body, extra: { kind: 'dose', key: d.key, title, body } };
   });
   const once = [];
@@ -256,6 +256,7 @@ async function markDose(key, day, value) {
   page.updatedAt = Date.now();
   xpPage(page);
   await db.put('pages', page);
+  checkWaterGoal(page);
   if (value) await N.cancelIds([N.hashId(`fu:${key}:${day}`)]);
   else await syncDoses();
 }
@@ -334,6 +335,7 @@ function scrRemedios() {
   const list = grp('Manhã', doses.filter(d => hr(d) < 12)) + grp('Tarde', doses.filter(d => hr(d) >= 12 && hr(d) < 18)) + grp('Noite', doses.filter(d => hr(d) >= 18));
   const body = `<div class="card"><div class="row" style="align-items:baseline"><p class="grow" style="margin:0;font-size:26px;font-weight:800">${done} <span style="font-size:16px;font-weight:600;color:var(--muted)">de ${n} hoje</span></p><span class="small" style="font-weight:600">${parts}</span></div>${bar}</div>
     ${hero}
+    ${doses.some(d => d.kind === 'agua') || waterGoal() ? waterCard() : ''}
     <div class="card" style="padding-top:4px">${list}</div>
     <button class="ghost" style="width:100%;margin-bottom:12px" onclick="A.toggleMedEdit()">${S.medEdit ? 'Fechar edição' : 'Editar horários e avisos'}</button>
     ${S.medEdit ? toolRemedios() : ''}`;
@@ -381,6 +383,7 @@ function pinnedPlan() {
   if (nextEv) lines.push(`Agenda: ${hm(nextEv.start)} ${nextEv.title}`);
   const { done, total } = progressToday();
   if (total) lines.push(`Hoje: ${done} de ${total} feitos.`);
+  if (waterGoal()) lines.push(`Água: ${fmtL(waterToday())} de ${fmtL(waterGoal())}.`);
   return { title, body, big: lines.join('\n'), actionType, extra: { dose: dose ? dose.key : null, top: cur ? cur.top : null, taskId: cur ? cur.taskId : null, stepIdx: cur ? cur.stepIdx : null } };
 }
 let lastPinKey = null;
@@ -506,6 +509,7 @@ const ICONS = {
   assistente: '<path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
   foco: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/>',
   busca: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
+  agua: '<path d="M12 3.5s6 6.4 6 10.6a6 6 0 0 1-12 0c0-4.2 6-10.6 6-10.6z"/><path d="M9.2 14.6a3 3 0 0 0 2.6 2.6"/>',
   calendario: '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/>',
   pontos: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 2.6 3.9M16 6h2.5a2.5 2.5 0 0 1-2.6 3.9M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
   play: '<path d="M7 5l12 7-12 7z" fill="currentColor"/>',
@@ -874,7 +878,7 @@ function meuDiaCard() {
     html += `<div class="dper ${k === nowPer && today ? 'now' : ''}"><button class="dph" onclick="A.togglePer('${k}')" aria-expanded="${open}">${label}${k === nowPer && today ? ' <span class="nowtag">agora</span>' : ''}<span class="grow"></span>${!open ? `<span class="small">${dn} de ${list.length}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? list.map(dayRow).join('') : ''}</div>`;
   });
   const doses = dosesForDay(); const tk = p.doses || {};
-  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today ? `<button class="chip" onclick="A.tab('calendario')">${svg('calendario', 14)} Semana</button>` : ''}</div>`;
+  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today && waterGoal() ? `<button class="chip" onclick="A.tab('remedios')">${svg('agua', 14)} ${fmtL(waterToday()).replace(' L', '')}/${fmtL(waterGoal())}</button>` : ''}${today ? `<button class="chip" onclick="A.tab('calendario')">${svg('calendario', 14)} Semana</button>` : ''}</div>`;
   const conn = today && N.isNative() && S.calPerm !== 'granted' ? `<p class="small" style="margin:8px 0 0">Conecte a agenda em Ajustes para ver seus compromissos aqui.</p>` : '';
   return `<div class="card meudia"><div class="row"><h2 class="grow" style="margin:0">Meu dia</h2>${prios.length ? `<span class="tag">★ ${pd} de ${prios.length}</span>` : ''}<button class="iconbtn sm" onclick="A.daySheetOpen('new')" aria-label="Adicionar ao dia">${svg('plus', 20, 2.2)}</button></div>${chips}${html}${conn}
     ${prios.length && prios.length < 3 && today ? `<button class="ghost mini mt" onclick="A.daySheetOpen('new', 'prio')">★ Adicionar prioridade</button>` : ''}</div>`;
@@ -1527,6 +1531,7 @@ function buildContext() {
     const hidden = share ? 0 : S.meds.filter(m => m.kind === 'remedio').length;
     lines.push('Itens de Remédios e água: ' + (items.join('; ') || 'nenhum visível') + (hidden ? ` (+${hidden} remédio(s) com nomes não compartilhados)` : ''));
   }
+  if (waterGoal()) lines.push(`Água hoje: ${fmtL(waterToday())} de ${fmtL(waterGoal())} (meta por peso, 35 mL/kg).`);
   const dz = dosesForDay();
   if (dz.length) {
     const tk = (p && p.doses) || {};
@@ -2000,6 +2005,7 @@ async function applyOnb() {
   await setR('manha', d.wake);
   if (d.work !== 'nao') { await setR('ignicao', d.wStart); await setR('fechamento', shiftTime(d.wEnd, -15)); }
   await setR('noite', shiftTime(d.sleep, -60));
+  S.settings.sleepFrom = shiftTime(d.sleep, -60); S.settings.sleepTo = d.wake; await db.put('settings', S.settings);
   await setR('semanal', d.weekTime, Number(d.weekDay));
   for (const a of d.areas) for (const n of AREAS.find(x => x[0] === a)[2]) {
     const o = objFor('strategies', n); o.fav = true; if (!o.status) o.status = 'quero'; await db.put('strategies', o);
@@ -2095,7 +2101,7 @@ function scrOnboarding() {
 // ---------------- 2.0: tocar no silencioso, Não perturbe, pomodoro, pontos, rotina guiada, busca ----------------
 
 // ----- Tocar no silencioso (volume de alarme) -----
-function applyLoud() { N.setLoud({ dose: !!S.settings.loudDose, rem: !!S.settings.loudRem }); }
+function applyLoud() { N.setLoud({ dose: !!S.settings.loudDose, rem: !!S.settings.loudRem }); applyQuiet(); }
 async function refreshAlarmVol() {
   if (!N.isNative()) return;
   const v = await N.alarmVolume();
@@ -2118,6 +2124,7 @@ function loudCard() {
     ${row('loudRem', 'Tarefas, lembretes e rotinas')}
     ${row('focusSilent', 'Fim do foco e dos passos da rotina')}
     ${vol}
+    ${quietCardPart()}
     <div class="row mt"><button class="ghost grow" onclick="A.testLoud('dose')">Testar remédio</button><button class="ghost grow" onclick="A.testLoud('rem')">Testar lembrete</button></div>
     ${s.loudDose || s.loudRem || s.focusSilent ? '<p class="small mt" style="margin-bottom:0">Com o Não perturbe ligado, toca se ele deixar os alarmes passarem (é o padrão do Android).</p>' : ''}</div>`;
 }
@@ -2365,8 +2372,66 @@ function scrCalendario() {
   return ['Calendário', 'Próximos 7 dias', b, { back: 'A.back()' }];
 }
 
+// ----- Horário de dormir (2.2): depois que a higiene do sono começa, nada toca até acordar -----
+function sleepWindow() {
+  const s = S.settings, r = id => (S.routines.find(x => x.id === id) || {}).notifyTime;
+  return { from: s.sleepFrom || r('noite') || '22:00', to: s.sleepTo || r('manha') || '07:00', on: s.quietOn !== false };
+}
+function applyQuiet() { N.setQuiet(sleepWindow()); }
+function quietCardPart() {
+  const w = sleepWindow();
+  const night = dosesForDay().filter(d => { const [hh, mm] = d.time.split(':').map(Number); return w.on && N.inQuiet(hh, mm); });
+  const names = [...new Set(night.map(d => `${d.name} (${d.time})`))];
+  return `<h3 style="margin-top:14px">Horário de dormir</h3>
+    <p class="hint" style="margin-top:0">Da higiene do sono até acordar, nada toca nem vibra: os avisos aparecem quietos e o "ainda não marcou" espera a manhã. O lembrete que abre a higiene do sono continua tocando.</p>
+    <div class="row" style="gap:10px"><label class="grow small">Começa às<input type="time" value="${h(w.from)}" onchange="A.setSleep('sleepFrom', this.value)"></label><label class="grow small">Até<input type="time" value="${h(w.to)}" onchange="A.setSleep('sleepTo', this.value)"></label></div>
+    <div class="setrow"><div class="lb">Silenciar nesse horário</div>${sw(w.on, 'Silenciar no horário de dormir', 'A.setQuietOn()')}</div>
+    ${names.length ? `<div class="alert" style="margin:6px 0 0">Cai no horário de dormir e vai aparecer sem tocar: ${h(names.join(', '))}. Se precisa tocar, mude o horário do remédio ou o do sono.</div>` : ''}`;
+}
+
+// ----- Meta de água em mL (2.2): 35 mL por kg de peso -----
+const waterCopo = () => Number(S.settings.aguaCopo) || 250;
+function waterGoal() {
+  const m = Number(S.settings.aguaMetaMl); if (m > 0) return Math.round(m);
+  const kg = Number(S.settings.pesoKg);
+  return kg > 0 ? Math.round(kg * 35 / 50) * 50 : 0;
+}
+function waterToday(p = S.page) {
+  if (!p) return 0;
+  const tk = p.doses || {};
+  const copos = dosesForDay().filter(d => d.kind === 'agua' && tk[d.key]).length;
+  return copos * waterCopo() + (p.aguaExtra || []).reduce((a, b) => a + (Number(b) || 0), 0);
+}
+const fmtL = ml => (ml / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' L';
+function checkWaterGoal(p) {
+  if (!p || !S.xp || p.id !== todayKey()) return;
+  const g = waterGoal(), hit = g > 0 && waterToday(p) >= g;
+  const d = xpSet('agua:' + p.id, hit ? 10 : 0, p.id, true);
+  if (d > 0) { celebrate(); if (xpOn()) popPoints(10); setTimeout(() => toast(`Meta de água batida: ${fmtL(waterToday(p))}!`, 3500), 80); }
+}
+function waterCard() {
+  const g = waterGoal(), t = waterToday(), copo = waterCopo();
+  const isToday = S.page.id === todayKey();
+  const nW = dosesForDay().filter(d => d.kind === 'agua').length;
+  const pct = g ? Math.min(100, Math.round(100 * t / g)) : 0;
+  const head = g
+    ? `<div class="row" style="align-items:baseline"><p class="grow" style="margin:0;font-size:24px;font-weight:800">${fmtL(t)} <span style="font-size:15px;font-weight:600;color:var(--muted)">de ${fmtL(g)}</span></p>${t >= g ? '<span class="tag">Meta batida</span>' : `<span class="small">faltam ${fmtL(g - t)}</span>`}</div><div class="wbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Água de hoje"><i style="width:${pct}%"></i></div>`
+    : `<p style="margin:0;font-size:22px;font-weight:800">${fmtL(t)} hoje</p><p class="small" style="margin:4px 0 0">Diga seu peso para o app calcular a meta.</p>`;
+  const btns = isToday ? `<div class="row mt" style="gap:8px"><button class="grow" onclick="A.aguaAdd(${copo})">+ ${copo} mL</button><button class="ghost grow" onclick="A.aguaAdd(500)">+ 500 mL</button><button class="icon" onclick="A.aguaUndo()" aria-label="Desfazer o último">↶</button></div>` : '';
+  const cov = nW * copo;
+  const sugg = g && nW && cov < g ? Math.ceil(g / nW / 50) * 50 : 0;
+  const edit = S.waterEdit || !g
+    ? `<div class="mt"><div class="row" style="gap:10px"><label class="grow small">Seu peso (kg)<input type="number" inputmode="decimal" min="20" max="300" value="${h(S.settings.pesoKg || '')}" onchange="A.setWater('pesoKg', this.value)"></label><label class="grow small">Meta (mL)<input type="number" inputmode="numeric" min="500" step="50" placeholder="${g || 'automática'}" value="${h(S.settings.aguaMetaMl || '')}" onchange="A.setWater('aguaMetaMl', this.value)"></label></div>
+        <p class="small" style="margin:8px 0 4px">Copo</p><div class="pills">${[200, 250, 300, 400, 500].map(v => `<button class="pill ${copo === v ? 'on' : ''}" onclick="A.setWater('aguaCopo', ${v})">${v} mL</button>`).join('')}</div>
+        <p class="small mt" style="margin-bottom:0">Meta automática: 35 mL por kg de peso, para adultos. Calor e exercício pedem mais. Quem tem doença nos rins ou no coração deve seguir o que o médico orientar.</p>
+        ${g ? `<button class="ghost mini mt" onclick="A.waterEditToggle()">Pronto</button>` : ''}</div>`
+    : `<button class="linkbtn2" onclick="A.waterEditToggle()">Ajustar peso, meta e copo</button>`;
+  return `<div class="card" id="waterCard"><p class="eyebrow" style="margin:0 0 6px">Água de hoje</p>${head}${btns}
+    ${sugg ? `<p class="small mt" style="margin-bottom:0">Seus ${nW} lembretes de água dão ${fmtL(cov)}. ${sugg <= 500 ? `Para chegar à meta, use copo de ${sugg} mL ou inclua mais horários.` : `Para chegar à meta com copo de ${copo} mL, são uns ${Math.ceil(g / copo)} por dia: inclua mais horários ou use o + 500 mL.`}</p>` : ''}${edit}</div>`;
+}
+
 // ----- Pontos, nível, sequência e recompensas -----
-const XP_RULES = [['Dia perfeito: prioridades e remédios do dia feitos', 20], ['Tarefa concluída (+1 a cada 3 dias parada, até +10)', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
+const XP_RULES = [['Dia perfeito: prioridades e remédios do dia feitos', 20], ['Meta de água batida', 10], ['Tarefa concluída (+1 a cada 3 dias parada, até +10)', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
 const DEFAULT_REWARDS = [['Um episódio de série', 40], ['Café ou doce especial', 60], ['Uma hora de jogo sem culpa', 100]];
 const xpLvlAt = n => 50 * n * (n - 1); // pontos para chegar ao nível n: 0, 100, 300, 600, 1000…
 const xpOn = () => S.settings.xpOn !== false;
@@ -2806,6 +2871,28 @@ const A = {
     else if (k === 'loudRem') await syncNotifications();
     else if (S.focus && S.focus.phase === 'run') await scheduleFocusAlerts();
     if (s[k]) { await refreshAlarmVol(); toast(S.alarmVol && S.alarmVol.vol === 0 ? 'Ligado, mas o volume de alarme está zerado' : 'Vai tocar mesmo no silencioso'); }
+  },
+  async setSleep(k, v) {
+    if (!/^\d{2}:\d{2}$/.test(v || '')) return;
+    S.settings[k] = v; await db.put('settings', S.settings); applyQuiet(); render(); await syncNotifications();
+    const w = sleepWindow(); toast(`Horário de dormir: das ${w.from} às ${w.to}`);
+  },
+  async setQuietOn() { S.settings.quietOn = S.settings.quietOn === false; await db.put('settings', S.settings); applyQuiet(); render(); await syncNotifications(); },
+  async aguaAdd(ml) {
+    if (S.page.id !== todayKey()) await loadPage(todayKey());
+    (S.page.aguaExtra = S.page.aguaExtra || []).push(Number(ml) || waterCopo());
+    await savePage(); checkWaterGoal(S.page); render(); updatePinned();
+  },
+  async aguaUndo() {
+    const p = S.page; if (!p.aguaExtra || !p.aguaExtra.length) return toast('Para tirar um copo dos lembretes, toque no círculo dele');
+    p.aguaExtra.pop(); await savePage(); checkWaterGoal(p); render(); updatePinned();
+  },
+  waterEditToggle() { S.waterEdit = !S.waterEdit; render(); },
+  async setWater(k, v) {
+    const n = Number(String(v).replace(',', '.'));
+    S.settings[k] = n > 0 ? (k === 'pesoKg' ? Math.round(n * 10) / 10 : Math.round(n)) : null;
+    S.waterEdit = true; await db.put('settings', S.settings); render(); checkWaterGoal(S.page);
+    if (k === 'aguaCopo') await syncDoses();
   },
   async raiseAlarm() {
     const v = await N.raiseAlarmVolume(0.7);
@@ -3441,7 +3528,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {

@@ -97,7 +97,7 @@ export async function syncRoutineReminders(routines) {
         title: r.title,
         body: r.trigger ? `Hora de começar. ${r.trigger}` : 'Hora de começar.',
         schedule: { on: r.notifyWeekday ? { weekday: r.notifyWeekday, hour, minute } : { hour, minute }, allowWhileIdle: true },
-        channelId: remChannel(), extra: { kind: 'routine', routineId: r.id },
+        channelId: inQuiet(hour, minute) && r.id !== 'noite' ? 'noite' : remChannel(), extra: { kind: 'routine', routineId: r.id },
       };
     });
   if (list.length) await LocalNotifications.schedule({ notifications: list });
@@ -105,7 +105,8 @@ export async function syncRoutineReminders(routines) {
   if (LOUD.rem) {
     for (const n of list) {
       const on = n.schedule.on;
-      await toque({ id: n.id, rep: on.weekday ? 'semana' : 'dia', dia: on.weekday || 0, hora: on.hour, minuto: on.minute });
+      if (inQuiet(on.hour, on.minute) && n.extra.routineId !== 'noite') continue;
+      await toque({ id: n.id, rep: on.weekday ? 'semana' : 'dia', dia: on.weekday || 0, hora: on.hour, minuto: on.minute, som: n.extra.routineId === 'noite' ? 'abre' : 'alarme' });
     }
   }
   return list.length;
@@ -120,8 +121,9 @@ export async function scheduleOnce(key, title, body, at, loudable = true) {
   const id = hashId('once:' + key);
   await LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => {});
   await toqueCancel([id]);
-  await LocalNotifications.schedule({ notifications: [{ id, title, body, schedule: { at, allowWhileIdle: true }, channelId: remChannel(loudable), extra: { kind: 'once', key } }] });
-  if (loudable && LOUD.rem) await toque({ id, rep: 'uma', at });
+  const night = loudable && quietAt(at);
+  await LocalNotifications.schedule({ notifications: [{ id, title, body, schedule: { at, allowWhileIdle: true }, channelId: night ? 'noite' : remChannel(loudable), extra: { kind: 'once', key } }] });
+  if (loudable && LOUD.rem && !night) await toque({ id, rep: 'uma', at });
   return true;
 }
 
@@ -150,6 +152,22 @@ export function setLoud(o) { LOUD = { ...LOUD, ...o }; }
 // No silencioso, o som do canal fica mudo em vários celulares (Samsung). Então os canais "_toque"
 // só vibram, e o próprio app toca o som pelo volume de alarme na mesma hora (AlertaPlugin.agendarToque).
 const doseChannel = () => (LOUD.dose ? 'remedios_toque' : CHANNEL);
+
+// ---------- Horário de dormir ----------
+// Avisos que caem nele vão para o canal "noite" (aparecem sem som e sem vibrar), sem toque de alarme,
+// e os lembretes de "ainda não marcou" não são agendados. O foco e a rotina, que a pessoa liga acordada, não mudam.
+let QUIET = { on: false, from: 23 * 60, to: 7 * 60 };
+const hmMin = t => { const [a, b] = String(t || '').split(':').map(Number); return (a || 0) * 60 + (b || 0); };
+export function setQuiet({ on, from, to }) {
+  QUIET = { on: !!on, from: hmMin(from), to: hmMin(to) };
+  if (isNative()) Alerta.horarioSilencio({ ligado: QUIET.on, de: QUIET.from, ate: QUIET.to }).catch(() => {});
+}
+export function inQuiet(h, m) {
+  if (!QUIET.on || QUIET.from === QUIET.to) return false;
+  const x = h * 60 + m;
+  return QUIET.from < QUIET.to ? x >= QUIET.from && x < QUIET.to : x >= QUIET.from || x < QUIET.to;
+}
+const quietAt = d => d instanceof Date && inQuiet(d.getHours(), d.getMinutes());
 const remChannel = (loudable = true) => (loudable && LOUD.rem ? 'lembretes_toque' : 'lembretes');
 // item: { id, rep: 'uma'|'dia'|'semana', at (ms), hora, minuto, dia (1 = domingo), som: 'alarme'|'sino' }
 async function toque(item) {
@@ -232,9 +250,9 @@ export async function snoozeDose(extra, minutes = 15) {
   const at = new Date(Date.now() + minutes * 60000);
   await LocalNotifications.schedule({ notifications: [{
     id: hashId('snooze:' + extra.key + ':' + at.getTime()), title: extra.title || 'Lembrete', body: extra.body || 'Toque em Tomei quando tomar.',
-    schedule: { at, allowWhileIdle: true }, channelId: doseChannel(), actionTypeId: 'DOSE', extra: { ...extra, kind: 'dose-snooze' },
+    schedule: { at, allowWhileIdle: true }, channelId: quietAt(at) ? 'noite' : doseChannel(), actionTypeId: 'DOSE', extra: { ...extra, kind: 'dose-snooze' },
   }] });
-  if (LOUD.dose) await toque({ id: hashId('snooze:' + extra.key + ':' + at.getTime()), rep: 'uma', at });
+  if (LOUD.dose && !quietAt(at)) await toque({ id: hashId('snooze:' + extra.key + ':' + at.getTime()), rep: 'uma', at });
 }
 
 // plan: { daily: [{key,title,body,hour,minute,extra}], once: [{id,title,body,at,extra,actions}] }
@@ -246,17 +264,18 @@ export async function syncDoseNotifications(plan) {
   const list = [];
   for (const d of plan.daily) {
     list.push({ id: hashId('dose:' + d.key), title: d.title, body: d.body, schedule: { on: { hour: d.hour, minute: d.minute }, allowWhileIdle: true },
-      channelId: doseChannel(), actionTypeId: 'DOSE', extra: d.extra });
+      channelId: inQuiet(d.hour, d.minute) ? 'noite' : doseChannel(), actionTypeId: 'DOSE', extra: d.extra });
   }
   for (const o of plan.once) {
     if (!(o.at instanceof Date) || o.at.getTime() <= Date.now()) continue;
-    list.push({ id: o.id, title: o.title, body: o.body, schedule: { at: o.at, allowWhileIdle: true }, channelId: doseChannel(),
+    if (quietAt(o.at) && o.extra && o.extra.kind === 'dose-followup') continue; // "ainda não marcou" não acorda ninguém
+    list.push({ id: o.id, title: o.title, body: o.body, schedule: { at: o.at, allowWhileIdle: true }, channelId: quietAt(o.at) ? 'noite' : doseChannel(),
       ...(o.actions ? { actionTypeId: 'DOSE' } : {}), extra: o.extra });
   }
   for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
   if (LOUD.dose) {
-    for (const d of plan.daily) await toque({ id: hashId('dose:' + d.key), rep: 'dia', hora: d.hour, minuto: d.minute });
-    for (const n of list) if (n.schedule.at) await toque({ id: n.id, rep: 'uma', at: n.schedule.at });
+    for (const d of plan.daily) if (!inQuiet(d.hour, d.minute)) await toque({ id: hashId('dose:' + d.key), rep: 'dia', hora: d.hour, minuto: d.minute });
+    for (const n of list) if (n.schedule.at && !quietAt(n.schedule.at)) await toque({ id: n.id, rep: 'uma', at: n.schedule.at });
   }
   lsSet('dose_notif_ids', list.map(n => n.id));
   return list.length;
