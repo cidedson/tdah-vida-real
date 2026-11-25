@@ -227,6 +227,11 @@ function carryToday() {
 async function syncDoses() {
   await applyWaterPlan();
   if (!N.isNative()) return;
+  const plan = await dosePlan();
+  try { await N.syncDoseNotifications(plan); } catch (e) { toast('Erro ao agendar lembretes: ' + (e.message || e)); }
+}
+// Os avisos de remédio e água. Item já marcado hoje antes do horário não toca hoje.
+async function dosePlan() {
   const doses = dosesForDay(todayKey()).filter(d => !d.once);
   const today = todayKey();
   const tp = S.page.id === today ? S.page : ((await db.get('pages', today)) || {});
@@ -235,7 +240,8 @@ async function syncDoses() {
     const [hour, minute] = d.time.split(':').map(Number);
     const title = d.kind === 'agua' ? `Água: beba ${d.ml} mL` : `Hora de: ${d.name}`;
     const body = d.kind === 'agua' ? `${d.name}. Toque em Tomei quando beber.` : `Horário das ${d.time}. Toque em Tomei quando tomar.`;
-    return { key: d.key, hour, minute, title, body, extra: { kind: 'dose', key: d.key, title, body } };
+    const skipToday = !!takenToday[d.key] && atTime(new Date(), d.time).getTime() > Date.now();
+    return { key: d.key, hour, minute, title, body, skipToday, extra: { kind: 'dose', key: d.key, title, body } };
   });
   const once = [];
   const follow = followMin();
@@ -260,7 +266,7 @@ async function syncDoses() {
   for (const c of carryPlan([...(S.events || []), ...(S.eventsWeek || [])])) {
     once.push({ id: N.hashId(`carry:${c.event.id}:${c.dayKey}`), title: 'Leve o remédio', body: `${c.items.map(i => `${i.name} (${i.time})`).join(', ')}. Você vai estar em "${c.event.title}" às ${hm(c.event.start)}.`, at: c.notifyAt, extra: { kind: 'carry' } });
   }
-  try { await N.syncDoseNotifications({ daily, once }); } catch (e) { toast('Erro ao agendar lembretes: ' + (e.message || e)); }
+  return { daily, once };
 }
 
 async function markDose(key, day, value) {
@@ -273,8 +279,12 @@ async function markDose(key, day, value) {
   xpPage(page);
   await db.put('pages', page);
   checkWaterGoal(page);
-  if (value) await N.cancelIds([N.hashId(`fu:${key}:${day}`)]);
-  else await syncDoses();
+  if (value) {
+    await N.cancelIds([N.hashId(`fu:${key}:${day}`)]); await N.cancelSnooze(key);
+    // Marcou antes do horário: refaz os avisos para o de hoje não tocar.
+    const d = dd || dosesForDay(day).find(x => x.key === key);
+    if (d && day === todayKey() && atTime(new Date(), d.time).getTime() > Date.now()) await syncDoses();
+  } else await syncDoses();
 }
 
 async function onDoseAction(actionId, extra) {
@@ -3647,7 +3657,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, dosePlan, doseNotifList: N.doseNotifList, setLoud: N.setLoud, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
