@@ -1034,7 +1034,7 @@ function routineDetail(r) {
     : r.steps.map((s, i) => check(!!run.checks[i], h(s), `A.toggleStep(${i})`)).join('');
   const tot = stepMins(r).reduce((a, b) => a + b, 0);
   const body = `${back}
-  ${r.steps.length ? `<div class="card mt"><button style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px" onclick="A.rplayStart()">${svg('play', 18)} Começar guiada · ${tot} min</button><p class="small mt" style="margin-bottom:0">Um passo por vez, com tempo e aviso no fim de cada um. Os minutos de cada passo mudam em Editar.</p>
+  ${r.steps.length ? `<div class="card mt"><button style="width:100%;min-height:52px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px" onclick="A.rplayStart()">${svg('play', 18)} Começar guiada · ${tot} min</button><p class="small mt" style="margin-bottom:0">Um passo por vez, com tempo e aviso no fim de cada um. Os minutos de cada passo mudam em Editar.</p>
     <div class="setrow"><div class="lb">Falar os passos<div class="small" style="font-weight:500">Diz o passo e o tempo dele</div></div>${sw(rpVoice(), 'Falar os passos', 'A.rplayVoice()')}</div>
     <div class="setrow"><div class="lb">Avançar sozinho<div class="small" style="font-weight:500">Acabou o tempo, vai para o próximo</div></div>${sw(rpAuto(), 'Avançar sozinho', 'A.rplayAuto()')}</div></div>` : ''}
   <div class="card mt"><div class="small">${h(r.when)} · ${h(r.duration)}</div><div class="mt"><b>Gatilho:</b> ${h(r.trigger)}</div>
@@ -1484,9 +1484,9 @@ function taskDetail(t) {
     b += `<div class="card"><h2>${ph === 'feito' ? 'Passos' : '3. Faz'}</h2>${ph === 'faz' && cur ? `<p class="hint">Agora é só o próximo passo. Sem decidir nada no meio.</p>` : ''}<div class="steps">${list}</div>
       ${t.need || t.when ? `<p class="small mt" style="margin-bottom:0">${t.need ? `Preciso de: ${h(t.need)}. ` : ''}${t.when ? `Quando: ${h(t.when)}.` : ''}</p>` : ''}</div>`;
     if (ph === 'faz') {
-      if (cur) b += `<button style="width:100%;height:54px;font-size:16px" onclick="A.taskFocus('${t.id}')">${svg('foco', 20)} Começar no foco: passo ${st.indexOf(cur) + 1}</button>
+      if (cur) b += `<button style="width:100%;min-height:54px;font-size:16px" onclick="A.taskFocus('${t.id}')">${svg('foco', 20)} Começar no foco: passo ${st.indexOf(cur) + 1}</button>
         <div class="row mt"><button class="ghost grow" style="font-size:14px;padding:11px 6px" onclick="A.taskStuck('${t.id}')" ${busy ? 'disabled' : ''}>${busy ? 'Quebrando…' : 'Travei neste passo'}</button><button class="ghost grow" style="font-size:14px;padding:11px 6px" onclick="A.taskEdit('${t.id}')">Editar o plano</button></div>`;
-      else b += `<button style="width:100%;height:54px;font-size:16px" onclick="A.taskComplete('${t.id}')">Concluir tarefa</button>`;
+      else b += `<button style="width:100%;min-height:54px;font-size:16px" onclick="A.taskComplete('${t.id}')">Concluir tarefa</button>`;
       if (t.rep) b += `<button class="ghost mt" style="width:100%" onclick="A.taskSkip('${t.id}')">Pular esta vez</button>`;
     } else b += `<div class="card"><p style="margin:0;font-weight:700">Concluída${t.doneAt ? ' em ' + new Date(t.doneAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : ''}.</p><button class="ghost mini mt" onclick="A.taskReopen('${t.id}')">Reabrir</button></div>`;
   }
@@ -1816,7 +1816,7 @@ function scrFoco() {
   const prep = arr => `<div class="fcard" style="padding:4px 16px">${PREP.map((t, i) => check(!!(arr || [])[i], h(t), `A.focusPrep(${i})`)).join('')}</div>`;
   const park = () => S.parkOpen
     ? `<div class="fcard"><p class="eyebrow">Estacionar ideia</p><div class="row mt"><input class="grow" type="text" id="parkInput" placeholder="A ideia, do jeito que vier" onkeydown="if(event.key==='Enter')A.parkSave()"><button class="fbtn" onclick="A.parkSave()">Guardar</button></div></div>`
-    : `<button class="coral" style="width:100%;margin-top:14px;height:54px;display:flex;align-items:center;justify-content:center;gap:10px" onclick="A.parkToggle()">${svg('ideias', 20)}Estacionar uma ideia sem sair do foco</button>`;
+    : `<button class="coral" style="width:100%;margin-top:14px;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px" onclick="A.parkToggle()">${svg('ideias', 20)}Estacionar uma ideia sem sair do foco</button>`;
   const ring = focusRing;
 
   if (!f) {
@@ -1828,7 +1828,7 @@ function scrFoco() {
       <div class="fcard"><p class="eyebrow">No que vou focar</p>${tops.length ? `<div class="pills mt">${tops.map(([t, i]) => `<button class="pill ${pick === i ? 'on' : ''}" onclick="A.focusPickSet(${i})">${h(t.t)}</button>`).join('')}</div>` : ''}
         <input class="mt" type="text" id="focusLabel" placeholder="${tops.length ? 'Ou escreva outra coisa' : 'Ex.: relatório do mês'}" value="${h(S.focusDraft || '')}" oninput="A.focusDraftSet(this.value)"></div>
       <p class="eyebrow" style="margin:18px 4px 0">Antes de começar</p>${prep(S.focusPrepDraft)}
-      <button class="fbtn" style="width:100%;margin-top:16px;height:56px;font-size:16px" onclick="A.focusGo()">Começar ${min} min</button></div>` };
+      <button class="fbtn" style="width:100%;margin-top:16px;min-height:56px;font-size:16px" onclick="A.focusGo()">Começar ${min} min</button></div>` };
   }
 
   const pausa = f.mode === 'pausa';
@@ -1840,7 +1840,7 @@ function scrFoco() {
     const dial = discMode() ? `<div class="discwrap">${discSvg(f.total ? left / f.total : 0, 'fdisc')}</div><div class="dcenter">${center}</div>` : ring(f.total ? left / f.total : 0, center);
     const buddy = pausa ? '' : f.buddy
       ? `<div class="fcard row" style="gap:10px">${svg('juntos', 20)}<p class="grow" style="margin:0;font-size:14px">Focando junto. No fim, conte como foi.</p></div>`
-      : `<button class="outline" style="width:100%;margin-top:12px;height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusInvite()">${svg('juntos', 18)}Chamar alguém para focar junto</button>`;
+      : `<button class="outline" style="width:100%;margin-top:12px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusInvite()">${svg('juntos', 18)}Chamar alguém para focar junto</button>`;
     const mainBtn = f.phase === 'run'
       ? `<button class="fbtn main" onclick="A.focusPause()" aria-label="Pausar"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg></button>`
       : `<button class="fbtn main" onclick="A.focusResume()" aria-label="Continuar"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l12 7-12 7z"/></svg></button>`;
@@ -1857,7 +1857,7 @@ function scrFoco() {
   if (f.phase === 'breakdone') {
     return { raw: `<div class="focus">${head('Pausa acabou', '')}
       ${ring(1, `<p style="margin:0;font-size:20px;font-weight:800">Pausa feita</p>`)}
-      <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px"><button class="fbtn" style="height:54px;font-size:16px" onclick="A.focusAgain()">Outro bloco de ${S.focusMin || 25} min</button><button class="outline" style="height:48px" onclick="A.focusStop()">Encerrar</button></div></div>` };
+      <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px"><button class="fbtn" style="min-height:54px;font-size:16px" onclick="A.focusAgain()">Outro bloco de ${S.focusMin || 25} min</button><button class="outline" style="min-height:48px" onclick="A.focusStop()">Encerrar</button></div></div>` };
   }
 
   // phase === 'done'
@@ -1871,9 +1871,9 @@ function scrFoco() {
     ${ring(1, `${svg('check', 34, 2.4)}<p style="margin:0;font-size:20px;font-weight:800">${mins} min feitos</p>`)}
     ${cycleDots(f)}
     ${question}
-    ${f.buddy ? `<button class="outline" style="width:100%;margin-top:12px;height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusTell()">${svg('juntos', 18)}Contar como foi</button>` : ''}
-    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px"><button class="coral" style="height:54px;font-size:16px" onclick="A.focusBreak(${longo ? 15 : 5})">${longo ? '4 blocos feitos: pausa longa de 15 min' : 'Começar pausa de 5 min'}</button>
-    <div class="row" style="gap:10px"><button class="outline grow" style="height:48px" onclick="A.focusPlus(5)">+5 min de foco</button><button class="outline grow" style="height:48px" onclick="A.focusStop()">Encerrar</button></div></div></div>` };
+    ${f.buddy ? `<button class="outline" style="width:100%;margin-top:12px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="A.focusTell()">${svg('juntos', 18)}Contar como foi</button>` : ''}
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px"><button class="coral" style="min-height:54px;font-size:16px" onclick="A.focusBreak(${longo ? 15 : 5})">${longo ? '4 blocos feitos: pausa longa de 15 min' : 'Começar pausa de 5 min'}</button>
+    <div class="row" style="gap:10px"><button class="outline grow" style="min-height:48px" onclick="A.focusPlus(5)">+5 min de foco</button><button class="outline grow" style="min-height:48px" onclick="A.focusStop()">Encerrar</button></div></div></div>` };
 }
 
 // ---------------- Tela: Ajustes ----------------
@@ -2313,7 +2313,7 @@ function scrRotinaPlay() {
     return { raw: `<div class="focus">${head('Rotina concluída')}
       ${focusRing(1, `${svg('check', 34, 2.4)}<p style="margin:0;font-size:20px;font-weight:800">Feita em ${took} min</p>`)}
       <p class="muted2" style="text-align:center;margin-top:16px">${p.doneN} de ${p.list.length} passos feitos${p.skipped.length ? `, ${p.skipped.length} ${p.skipped.length === 1 ? 'pulado' : 'pulados'}` : ''}.</p>
-      <button class="fbtn" style="width:100%;margin-top:14px;height:54px;font-size:16px" onclick="A.rplayClose()">Voltar para a rotina</button></div>` };
+      <button class="fbtn" style="width:100%;margin-top:14px;min-height:54px;font-size:16px" onclick="A.rplayClose()">Voltar para a rotina</button></div>` };
   }
   const cur = p.list[p.i];
   const left = rpLeft(p), over = left < 0, paused = p.phase === 'paused';
@@ -2525,7 +2525,7 @@ function waterCard() {
   const head = g
     ? `<div class="row" style="align-items:baseline"><p class="grow" style="margin:0;font-size:24px;font-weight:800">${fmtL(t)} <span style="font-size:15px;font-weight:600;color:var(--muted)">de ${fmtL(g)}</span></p>${t >= g ? '<span class="tag">Meta batida</span>' : `<span class="small">faltam ${fmtL(g - t)}</span>`}</div><div class="wbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Água de hoje"><i style="width:${pct}%"></i></div>`
     : `<p style="margin:0;font-size:22px;font-weight:800">${fmtL(t)} hoje</p><p class="small" style="margin:4px 0 0">Diga seu peso para o app calcular a meta e espalhar os copos pelo dia.</p>`;
-  const btns = isToday ? `<div class="row mt" style="gap:8px"><button class="grow" onclick="A.aguaAdd(${copo})">+ ${copo} mL</button><button class="ghost grow" onclick="A.aguaAdd(500)">+ 500 mL</button><button class="icon" onclick="A.aguaUndo()" aria-label="Desfazer o último">↶</button></div>` : '';
+  const btns = isToday ? `<div class="row mt" style="gap:8px"><button class="grow" style="padding:11px 8px;white-space:nowrap" onclick="A.aguaAdd(${copo})">+ ${copo} mL</button><button class="ghost grow" style="padding:11px 8px;white-space:nowrap" onclick="A.aguaAdd(500)">+ 500 mL</button><button class="icon" onclick="A.aguaUndo()" aria-label="Desfazer o último">↶</button></div>` : '';
   let plan = '';
   if (pl && auto) plan = `<p class="small mt" style="margin-bottom:0"><b>Automático:</b> ${planLine(pl, tr)}${pl.tight ? ' Ficou apertado: escolha um copo maior.' : ''}</p>`;
   else if (pl) {
@@ -2728,8 +2728,16 @@ function applyTheme() {
   const dark = S.tab === 'foco' || S.tab === 'rotina' || t === 'escuro' || (t === 'auto' && sysDark);
   if (dark !== lastBars) { lastBars = dark; N.setBars(dark); }
 }
+// Fonte grande no celular: se o texto não cabe nos quadradinhos, eles viram linhas.
+function fitText() {
+  for (const el of document.querySelectorAll('.quick, .themes')) {
+    el.classList.remove('tight');
+    if ([...el.children].some(b => b.scrollWidth > b.clientWidth + 1)) el.classList.add('tight');
+  }
+}
 function render() {
   const app = document.getElementById('app');
+  queueMicrotask(fitText);
   applyTheme();
   later('pin', updatePinned, 700);
   if (S.onb) { document.body.className = 'nonav'; app.innerHTML = scrOnboarding(); return; }
