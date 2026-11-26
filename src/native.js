@@ -186,6 +186,11 @@ export async function setAlarmVolume(nivel) {
   if (!isNative()) return null;
   try { return await Alerta.definirVolumeAlarme({ nivel: Math.round(nivel) }); } catch (e) { return null; }
 }
+// Para o alarme que está tocando (abriu o app, tocou em Tomei).
+export async function stopAlarm() {
+  if (!isNative()) return;
+  try { await Alerta.pararToque(); } catch (e) { /* nada tocando */ }
+}
 // Toca um pedaço do som pelo volume de alarme, para ouvir como ficou.
 export async function previewAlarm(som = 'alarme', ms = 2000) {
   if (!isNative()) return;

@@ -288,6 +288,7 @@ async function markDose(key, day, value) {
 }
 
 async function onDoseAction(actionId, extra) {
+  N.stopAlarm();
   if (extra && extra.kind === 'fixo') {
     lastPinKey = null; // o Android tira a notificação ao tocar: postar de novo
     if (S.page.id !== todayKey()) await loadPage(todayKey());
@@ -3742,6 +3743,7 @@ async function start() {
   // Ao voltar para o app: troca de dia e agenda atualizada
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') { maybeAutoBackup(); updatePinned(true); return; }
+    N.stopAlarm(); // abriu o app: o alarme já cumpriu o papel
     N.pinnedVisible().then(v => { if (!v) updatePinned(true); });
     if (!S.viewingPast && S.page.id !== todayKey()) await loadPage(todayKey());
     if (S.calPerm === 'granted') await loadEvents();

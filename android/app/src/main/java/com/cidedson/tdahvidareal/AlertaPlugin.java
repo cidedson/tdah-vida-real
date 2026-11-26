@@ -273,6 +273,13 @@ public class AlertaPlugin extends Plugin {
         }
     }
 
+    /** Para o alarme que está tocando (o app abriu ou a pessoa tocou em Tomei). */
+    @PluginMethod
+    public void pararToque(PluginCall call) {
+        Toques.parar(getContext());
+        call.resolve();
+    }
+
     /** { som, ms }: toca uma prévia pelo volume de alarme, para ouvir como ficou. */
     @PluginMethod
     public void tocarTeste(PluginCall call) {

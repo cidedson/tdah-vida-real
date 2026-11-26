@@ -49,6 +49,8 @@
 
         <!-- Desliga o Não perturbe no fim do bloco de foco -->
         <receiver android:name=".NaoPerturbeReceiver" android:exported="false" />
+        <!-- Botão "Parar o som" da notificação que aparece enquanto o alarme toca -->
+        <receiver android:name=".PararSomReceiver" android:exported="false" />
 
         <!-- Toca o aviso pelo volume de alarme (mesmo no silencioso) e reagenda depois de reiniciar -->
         <receiver android:name=".ToqueReceiver" android:exported="true">

@@ -4,6 +4,7 @@ Cada push na `main` gera um APK em [Releases](../../releases). O número final d
 
 ## 2.2 — 24 de novembro de 2026
 
+- **Vários avisos na mesma hora tocam um som só:** três remédios às 06:00 não empilham mais três alarmes. Enquanto o alarme toca, aparece a notificação **Parar o som**; abrir o app ou tocar em **Tomei** também para o som.
 - **Volume de alarme no app:** em Ajustes › Tocar no silencioso, um controle de 0 a 100% com os botões − e +. Ao soltar, toca 2 segundos para você ouvir; **Ouvir o alarme neste volume** toca 4 segundos. É o mesmo volume do despertador do celular.
 - **Fonte grande do celular:** com a letra aumentada nas configurações do Android, os itens do menu não ficam mais um por cima do outro, os botões crescem com o texto e os atalhos do Hoje e os temas viram linhas quando não cabem.
 - **Marcou antes, não toca:** remédio ou água marcado antes do horário não toca nem avisa naquele dia; nos outros dias segue normal. O **Tomei** também cancela o “lembrar em 15 min” que estava pendente.

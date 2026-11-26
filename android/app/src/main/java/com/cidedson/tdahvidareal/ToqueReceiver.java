@@ -20,6 +20,7 @@ public class ToqueReceiver extends BroadcastReceiver {
         // "abre" é o lembrete que começa a higiene do sono: toca mesmo no início do horário de dormir.
         if ("alarme".equals(som) && Toques.emSilencio(context)) return;
         final PendingResult pr = goAsync();
-        Toques.tocar(context.getApplicationContext(), som, pr::finish);
+        // Vários avisos na mesma hora tocam um som só.
+        if (!Toques.tocarAviso(context.getApplicationContext(), som, pr::finish)) pr.finish();
     }
 }

@@ -1,6 +1,9 @@
 package com.cidedson.tdahvidareal;
 
 import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -155,6 +158,69 @@ final class Toques {
     }
 
     private static Runnable pararPrevia;
+    private static Runnable somAtual;
+    static final String PARAR = "com.cidedson.tdahvidareal.PARAR_SOM";
+    private static final int AVISO_PARAR = 7402;
+
+    /**
+     * Som de um aviso. Só um por vez: se já tem um tocando (3 remédios às 06:00), os outros não empilham.
+     * Enquanto toca o alarme, aparece a notificação "Parar o som". Devolve false se não começou.
+     */
+    static synchronized boolean tocarAviso(Context ctx, String som, Runnable fim) {
+        if (somAtual != null) return false;
+        final boolean longo = !"sino".equals(som);
+        if (longo) mostrarParar(ctx);
+        final boolean[] acabou = {false};
+        final Runnable[] este = new Runnable[1];
+        este[0] = tocar(ctx, som, () -> {
+            acabou[0] = true;
+            synchronized (Toques.class) { if (somAtual == este[0]) somAtual = null; }
+            if (longo) esconderParar(ctx);
+            if (fim != null) fim.run();
+        }, 9000);
+        if (!acabou[0]) somAtual = este[0];
+        return true;
+    }
+
+    /** Para o som que está tocando (botão "Parar o som", abrir o app ou tocar em Tomei). */
+    static synchronized void parar(Context ctx) {
+        Runnable r = somAtual;
+        somAtual = null;
+        if (r != null) r.run();
+        if (pararPrevia != null) pararPrevia.run();
+        esconderParar(ctx);
+    }
+
+    private static void mostrarParar(Context ctx) {
+        try {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm.getNotificationChannel("parar_som") == null) {
+                NotificationChannel c = new NotificationChannel("parar_som", "Parar o som do alarme", NotificationManager.IMPORTANCE_HIGH);
+                c.setDescription("Aparece enquanto o alarme toca, com o botão Parar o som.");
+                c.setSound(null, null);
+                c.enableVibration(false);
+                nm.createNotificationChannel(c);
+            }
+            Intent i = new Intent(ctx, PararSomReceiver.class).setAction(PARAR);
+            PendingIntent pi = PendingIntent.getBroadcast(ctx, AVISO_PARAR, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? new Notification.Builder(ctx, "parar_som") : new Notification.Builder(ctx);
+            b.setSmallIcon(R.drawable.ic_stat_tdah)
+                .setContentTitle("Alarme tocando")
+                .setContentText("Toque para parar o som. O aviso continua na barra.")
+                .setContentIntent(pi)
+                .setDeleteIntent(pi)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_ALARM)
+                .addAction(new Notification.Action.Builder((android.graphics.drawable.Icon) null, "Parar o som", pi).build());
+            nm.notify(AVISO_PARAR, b.build());
+        } catch (Exception e) {
+            // sem o botão, o som acaba sozinho em poucos segundos
+        }
+    }
+
+    private static void esconderParar(Context ctx) {
+        try { ((NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(AVISO_PARAR); } catch (Exception e) { /* nada */ }
+    }
 
     /** Prévia do volume de alarme: toca "ms" milissegundos e corta a prévia anterior, se ainda estiver tocando. */
     static synchronized void previa(Context ctx, String som, long ms) {
