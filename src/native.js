@@ -182,6 +182,15 @@ export async function alarmVolume() {
   if (!isNative()) return null;
   try { return await Alerta.volumeAlarme(); } catch (e) { return null; }
 }
+export async function setAlarmVolume(nivel) {
+  if (!isNative()) return null;
+  try { return await Alerta.definirVolumeAlarme({ nivel: Math.round(nivel) }); } catch (e) { return null; }
+}
+// Toca um pedaço do som pelo volume de alarme, para ouvir como ficou.
+export async function previewAlarm(som = 'alarme', ms = 2000) {
+  if (!isNative()) return;
+  try { await Alerta.tocarTeste({ som, ms }); } catch (e) { /* sem prévia */ }
+}
 export async function raiseAlarmVolume(fracao = 0.7) {
   if (!isNative()) return null;
   try { return await Alerta.subirVolumeAlarme({ fracao }); } catch (e) { return null; }

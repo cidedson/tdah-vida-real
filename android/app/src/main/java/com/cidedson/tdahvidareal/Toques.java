@@ -150,7 +150,24 @@ final class Toques {
     }
 
     /** Toca o som uma vez pelo volume de alarme e chama "fim" ao terminar (ou depois de 9 s). */
-    static void tocar(Context ctx, String som, Runnable fim) {
+    static Runnable tocar(Context ctx, String som, Runnable fim) {
+        return tocar(ctx, som, fim, 9000);
+    }
+
+    private static Runnable pararPrevia;
+
+    /** Prévia do volume de alarme: toca "ms" milissegundos e corta a prévia anterior, se ainda estiver tocando. */
+    static synchronized void previa(Context ctx, String som, long ms) {
+        if (pararPrevia != null) pararPrevia.run();
+        final Runnable[] esta = new Runnable[1];
+        esta[0] = tocar(ctx, som, () -> {
+            synchronized (Toques.class) { if (pararPrevia == esta[0]) pararPrevia = null; }
+        }, ms);
+        pararPrevia = esta[0];
+    }
+
+    /** Toca pelo volume de alarme por até "maxMs" e devolve o que para o som. */
+    static Runnable tocar(Context ctx, String som, Runnable fim, long maxMs) {
         Handler h = new Handler(Looper.getMainLooper());
         final boolean[] acabou = {false};
         final MediaPlayer mp = new MediaPlayer();
@@ -172,9 +189,10 @@ final class Toques {
             mp.setOnErrorListener((m, a, b) -> { encerrar.run(); return true; });
             mp.prepare();
             mp.start();
-            h.postDelayed(encerrar, 9000);
+            h.postDelayed(encerrar, maxMs);
         } catch (Exception e) {
             encerrar.run();
         }
+        return encerrar;
     }
 }

@@ -15,6 +15,8 @@ import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.view.WindowManager;
@@ -252,6 +254,33 @@ public class AlertaPlugin extends Plugin {
         NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
         r.put("naoPerturbe", nm.getCurrentInterruptionFilter() != NotificationManager.INTERRUPTION_FILTER_ALL);
         call.resolve(r);
+    }
+
+    /** { nivel }: põe o volume de alarme exatamente nesse nível (0 até o máximo do celular). */
+    @PluginMethod
+    public void definirVolumeAlarme(PluginCall call) {
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            int max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int nivel = Math.max(0, Math.min(max, call.getInt("nivel", am.getStreamVolume(AudioManager.STREAM_ALARM))));
+            am.setStreamVolume(AudioManager.STREAM_ALARM, nivel, 0);
+            JSObject r = new JSObject();
+            r.put("vol", am.getStreamVolume(AudioManager.STREAM_ALARM));
+            r.put("max", max);
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Não consegui mudar o volume: " + e.getMessage());
+        }
+    }
+
+    /** { som, ms }: toca uma prévia pelo volume de alarme, para ouvir como ficou. */
+    @PluginMethod
+    public void tocarTeste(PluginCall call) {
+        String som = call.getString("som", "alarme");
+        int ms = call.getInt("ms", 2500);
+        Context ctx = getContext();
+        new Handler(Looper.getMainLooper()).post(() -> Toques.previa(ctx, som, Math.max(500, Math.min(ms, 9000))));
+        call.resolve();
     }
 
     @PluginMethod

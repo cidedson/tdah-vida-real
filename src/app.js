@@ -2141,17 +2141,24 @@ async function refreshAlarmVol() {
   const v = await N.alarmVolume();
   if (JSON.stringify(v) !== JSON.stringify(S.alarmVol)) { S.alarmVol = v; if (S.tab === 'ajustes') render(); }
 }
+// O volume de alarme é o mesmo do despertador do celular.
+function volHint(pct) {
+  if (pct === 0) return '<span style="color:var(--warn);font-weight:700">Zerado: nada toca, nem o despertador.</span>';
+  return `${pct < 40 ? '<span style="color:var(--warn);font-weight:700">Baixo: pode não dar para ouvir.</span> ' : ''}É o mesmo volume do despertador do celular. Ao soltar, toca 2 segundos.`;
+}
 function loudCard() {
   const s = S.settings, v = S.alarmVol;
   const row = (k, label, small) => `<div class="setrow"><div class="lb">${label}${small ? `<div class="small" style="font-weight:500">${small}</div>` : ''}</div>${sw(!!s[k], label, `A.setLoud('${k}')`)}</div>`;
   let vol = '';
-  if (!N.isNative()) vol = '<p class="small" style="margin:8px 0">No app Android, o volume de alarme aparece aqui.</p>';
-  else if (v && v.max) {
+  if (v && v.max) {
     const pct = Math.round(100 * v.vol / v.max);
-    vol = pct === 0
-      ? `<div class="alert" style="margin:8px 0">O volume de alarme está zerado, então nada toca.<button class="mini" style="display:block;margin-top:8px" onclick="A.raiseAlarm()">Subir para 70%</button></div>`
-      : `<div class="setrow"><div class="lb">Volume de alarme: ${pct}%${pct < 40 ? '<div class="small" style="font-weight:500">Baixo: pode não dar para ouvir</div>' : ''}</div>${pct < 70 ? '<button class="ghost mini" onclick="A.raiseAlarm()">Subir para 70%</button>' : ''}</div>`;
-  }
+    vol = `<div class="volbox" id="volBox"><div class="row" style="align-items:baseline"><div class="lb grow">Volume de alarme</div><b id="volPct" style="font-size:18px">${pct}%</b></div>
+      <div class="row" style="gap:6px;align-items:center;margin-top:2px"><button class="icon volbtn" aria-label="Diminuir o volume de alarme" onclick="A.alarmStep(-1)">−</button>
+      <input type="range" class="grow" id="volRange" min="0" max="${v.max}" step="1" value="${v.vol}" aria-label="Volume de alarme" oninput="A.alarmVolInput(this.value)" onchange="A.alarmVolSet(this.value)">
+      <button class="icon volbtn" aria-label="Aumentar o volume de alarme" onclick="A.alarmStep(1)">+</button></div>
+      <p class="small" id="volHint" style="margin:2px 0 0">${volHint(pct)}</p>
+      <button class="ghost mini mt" onclick="A.alarmPreview()">Ouvir o alarme neste volume</button></div>`;
+  } else if (!N.isNative()) vol = '<p class="small" style="margin:8px 0">No app Android, o volume de alarme aparece aqui.</p>';
   return `<div class="card" id="loudCard" style="padding-top:6px;padding-bottom:12px"><h2 style="margin-top:10px">Tocar no silencioso</h2>
     <p class="hint" style="margin-bottom:4px">Usa o volume de alarme: toca mesmo com o celular no silencioso ou no vibrar.</p>
     ${row('loudDose', 'Remédios e água')}
@@ -3027,6 +3034,26 @@ const A = {
     const m = objFor('meds', id);
     if (m.auto) { m.auto = false; await db.put('meds', m); render(); return toast('Agora os horários são seus: mude à vontade'); }
     await A.waterAutoOn(id);
+  },
+  alarmVolInput(n) {
+    const v = S.alarmVol; if (!v || !v.max) return;
+    const pct = Math.round(100 * Number(n) / v.max);
+    const a = document.getElementById('volPct'), b = document.getElementById('volHint');
+    if (a) a.textContent = pct + '%'; if (b) b.innerHTML = volHint(pct);
+  },
+  async alarmVolSet(n) {
+    const v = S.alarmVol; if (!v || !v.max) return;
+    n = Math.max(0, Math.min(v.max, Math.round(Number(n))));
+    const r = await N.setAlarmVolume(n);
+    if (N.isNative() && !r) toast('Não consegui mudar o volume');
+    S.alarmVol = { ...v, ...(r || { vol: n }) }; render();
+    if (S.alarmVol.vol > 0) await N.previewAlarm('alarme', 2000);
+  },
+  async alarmStep(d) { if (S.alarmVol) await A.alarmVolSet(S.alarmVol.vol + d); },
+  async alarmPreview() {
+    if (!N.isNative()) return toast('O som toca no app Android');
+    if (!S.alarmVol || !S.alarmVol.vol) return toast('O volume de alarme está zerado');
+    await N.previewAlarm('alarme', 4000); toast('Tocando o alarme por 4 segundos');
   },
   async raiseAlarm() {
     const v = await N.raiseAlarmVolume(0.7);
