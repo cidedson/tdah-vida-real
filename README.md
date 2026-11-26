@@ -49,8 +49,8 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | **Hoje** | Uma tela só com o que importa agora: o card **Agora** (o remédio da vez ou a prioridade, com o botão certo), ações rápidas (anotar, descarregar, foco de 25 min, dia ruim), o humor numa linha e o **Meu dia**, por Manhã, Tarde e Noite, com as 3 prioridades marcadas com ★. O resto do dia fica em linhas que abrem quando você toca. |
 | **Captura mágica** | Escreva ou fale do seu jeito: "dentista sexta 15h no centro", "pagar a luz todo dia 10". O app separa a data, a hora, o local, a repetição e a categoria, e avisa no horário. Funciona sem IA; com IA, ainda fatia em passos. |
 | **Humor em 1 toque** | Check-in na tela Hoje (animado, calmo, cansado, ansioso, pra baixo), com a frase do dia de recompensa, a energia e o humor da semana. |
-| **Remédios e água** | Aviso na hora com **Tomei** e **Lembrar em 15 min**, novo aviso se você não marcar e aviso para **levar o remédio** quando a agenda tem compromisso no horário. |
-| **Tocar no silencioso** | Remédios, tarefas, lembretes, rotinas e o fim do foco podem tocar pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar. Tem botão de teste e aviso quando o volume de alarme está zerado. |
+| **Remédios e água** | Aviso na hora com **Tomei** e **Lembrar em 15 min**, novo aviso se você não marcar e aviso para **levar o remédio** quando a agenda tem compromisso no horário. Marcou antes da hora, aquele não toca no dia. |
+| **Tocar no silencioso** | Remédios, tarefas, lembretes, rotinas e o fim do foco podem tocar pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar. Controle do **volume de alarme** no próprio app, com prévia do som. Vários avisos na mesma hora tocam um som só, e a notificação **Parar o som** silencia na hora. |
 | **Horário de dormir** | Da higiene do sono até acordar, nada toca nem vibra: os avisos aparecem quietos. O lembrete que abre a higiene do sono continua tocando. |
 | **Meta de água** | Meta em mL pelo peso e pelo dia a dia, copos espalhados sozinhos entre acordar e a higiene do sono, e garrafa extra no dia de academia. Bateu, ganha pontos. |
 | **Próximo fixo** | Uma notificação fixa, sem som, com o próximo remédio e o passo atual, que só sai quando você conclui. |
@@ -85,7 +85,7 @@ Requer Android 7 ou mais novo. Não há versão para iPhone.
 
 1. **Configuração guiada:** horários, o que mais trava, remédios e água, um texto sobre você para o assistente e as permissões.
 2. **Permissões:** Notificações e "Alarmes e lembretes" para os avisos chegarem na hora; Agenda para ler os compromissos; Microfone só para o ditado.
-3. **Silencioso:** menu ☰ › Ajustes › **Tocar no silencioso**. Ligue o que deve tocar mesmo com o celular no silencioso e toque em **Testar remédio**.
+3. **Silencioso:** menu ☰ › Ajustes › **Tocar no silencioso**. Ligue o que deve tocar mesmo com o celular no silencioso, ajuste o **Volume de alarme** e toque em **Testar remédio**.
 4. **Não perturbe no foco (opcional):** Ajustes › Bloco de foco › **Não perturbe durante o foco**. O Android abre a lista de acesso ao Não perturbe; ative o TDAH na Vida Real e volte.
 5. **Backup:** menu ☰ › Ajustes › **Conectar Google Drive**. O app grava sozinho a cada 6 horas de uso.
 6. **IA (opcional):** Ajustes › **Assistente de IA**, ou o microfone do meio da barra de baixo. O passo a passo da chave aparece lá; a do Gemini é grátis.
