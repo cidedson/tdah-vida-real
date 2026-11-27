@@ -7,7 +7,7 @@ import { parseCapture, nextOccurrence, repLabel, validRep, guessCat, whenLabel, 
 import { MOODS, moodOf, face, phraseOfDay } from './mood.js';
 import { checkUpdate, cachedUpdate, isNewer, lastChecked, RELEASES_URL } from './update.js';
 
-const VERSION = '2.2 (navegador)';
+const VERSION = '2.3 (navegador)';
 const TUTORIAL_URL = 'https://cidedson.github.io/como-usar/'; // não pode começar com /t: esses links abrem o app (App Links)
 
 // ---------------- Estado ----------------
@@ -23,7 +23,7 @@ const S = {
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
   moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
-  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false, waterEdit: false,
+  alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false, waterEdit: false, habEdit: null, habMonth: null,
 };
 
 // ---------------- Utilidades ----------------
@@ -91,6 +91,7 @@ async function loadAll() {
   S.projects = (await db.all('projects')).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   S.ideas = (await db.all('ideas')).sort((a, b) => (b.at || 0) - (a.at || 0));
   S.habits = (await db.all('habits')).sort((a, b) => (a.order || 0) - (b.order || 0));
+  for (const hb of S.habits) if (hb.marks || !hb.days || !hb.times) { habNorm(hb); await db.put('habits', hb); }
   S.reminders = await db.all('reminders');
   S.meds = (await db.all('meds')).sort((a, b) => (a.order || 0) - (b.order || 0));
   S.week = (await db.get('misc', 'week')) || { id: 'week', checks: {}, top3: [{ t: '', s: '', d: false }, { t: '', s: '', d: false }, { t: '', s: '', d: false }], notes: '' };
@@ -289,6 +290,14 @@ async function markDose(key, day, value) {
 
 async function onDoseAction(actionId, extra) {
   N.stopAlarm();
+  if (extra && extra.kind === 'habito') {
+    const hb = S.habits.find(x => x.id === extra.id);
+    if (actionId === 'hab_feito' && hb) {
+      if (!hb.days[extra.day]) { hb.days[extra.day] = 1; await db.put('habits', hb); habXp(hb, extra.day); }
+      await syncHabits(); toast('Hábito marcado');
+    } else if (actionId === 'hab_snooze') { await N.scheduleOnce('habsnz:' + extra.id, extra.title, extra.body, new Date(Date.now() + 15 * 60000)); toast('Aviso de novo em 15 min'); }
+    S.tab = 'habitos'; S.openRoutine = null; S.drawer = false; render(); return;
+  }
   if (extra && extra.kind === 'fixo') {
     lastPinKey = null; // o Android tira a notificação ao tocar: postar de novo
     if (S.page.id !== todayKey()) await loadPage(todayKey());
@@ -517,6 +526,7 @@ async function syncNotifications() {
     else await N.cancelOnce(r.id);
   }
   await syncDoses();
+  await syncHabits();
   await scheduleWeekNotif();
 }
 
@@ -793,6 +803,7 @@ function weekSummaryCard(onHoje = false) {
     ${st.moods ? `<p class="eyebrow" style="margin-top:14px">Humor</p>${moodWeek()}` : ''}
     ${st.focusN ? `<p class="small mt" style="margin-bottom:0">Foco: <b>${fmtMin(st.focusMin)}</b> em ${st.focusN} ${st.focusN === 1 ? 'bloco' : 'blocos'}.</p>` : ''}
     ${best ? `<p class="small mt" style="margin-bottom:0">Dia que mais rendeu: <b>${best}</b>.</p>` : ''}
+    ${S.habits.length ? `<p class="eyebrow" style="margin-top:14px">Hábitos</p>${S.habits.map(hb => { const n = st.days.filter(k => hb.days && hb.days[k]).length, g = Math.min(7, hb.goal || 7); return `<div class="small" style="padding:2px 0">${n >= g ? '✓' : '·'} ${h(hb.t)}: <b>${n}</b> de ${g}</div>`; }).join('')}` : ''}
     ${st.doneTasks.length ? `<details class="mt"><summary style="font-size:14px">O que você concluiu (${st.doneTasks.length})</summary><div class="mt">${st.doneTasks.slice(0, 12).map(t => `<div class="small" style="padding:3px 0">${cdot(taskCat(t))}${h(t.title)}</div>`).join('')}</div></details>` : ''}
     ${hasAI() ? `<button class="${onHoje ? 'light' : 'ghost'} mt" style="width:100%" onclick="A.askWeek()">${svg('assistente', 16)} Resumo com a IA</button>` : ''}
     ${onHoje ? `<button class="ghost mini mt" onclick="A.tab('semana')">Abrir a revisão da semana</button>` : ''}</div>`;
@@ -913,7 +924,7 @@ function meuDiaCard() {
     html += `<div class="dper ${k === nowPer && today ? 'now' : ''}"><button class="dph" onclick="A.togglePer('${k}')" aria-expanded="${open}">${label}${k === nowPer && today ? ' <span class="nowtag">agora</span>' : ''}<span class="grow"></span>${!open ? `<span class="small">${dn} de ${list.length}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? list.map(dayRow).join('') : ''}</div>`;
   });
   const doses = dosesForDay(); const tk = p.doses || {};
-  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today && waterGoal() ? `<button class="chip" onclick="A.tab('remedios')">${svg('agua', 14)} ${fmtL(waterToday()).replace(' L', '')}/${fmtL(waterGoal())}</button>` : ''}${today ? `<button class="chip" onclick="A.tab('calendario')">${svg('calendario', 14)} Semana</button>` : ''}</div>`;
+  const chips = `<div class="dchips">${doses.length ? `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Remédios e água ${doses.filter(d => tk[d.key]).length}/${doses.length}</button>` : `<button class="chip" onclick="A.tab('remedios')">${svg('remedios', 14)} Cadastrar remédios</button>`}${today && waterGoal() ? `<button class="chip" onclick="A.tab('remedios')">${svg('agua', 14)} ${fmtL(waterToday()).replace(' L', '')}/${fmtL(waterGoal())}</button>` : ''}${today && S.habits.length ? `<button class="chip" onclick="A.tab('habitos')">${svg('habitos', 14)} Hábitos ${S.habits.filter(hb => hb.days && hb.days[todayKey()]).length}/${S.habits.length}</button>` : ''}${today ? `<button class="chip" onclick="A.tab('calendario')">${svg('calendario', 14)} Semana</button>` : ''}</div>`;
   const conn = today && N.isNative() && S.calPerm !== 'granted' ? `<p class="small" style="margin:8px 0 0">Conecte a agenda em Ajustes para ver seus compromissos aqui.</p>` : '';
   return `<div class="card meudia"><div class="row"><h2 class="grow" style="margin:0">Meu dia</h2>${prios.length ? `<span class="tag">★ ${pd} de ${prios.length}</span>` : ''}<button class="iconbtn sm" onclick="A.daySheetOpen('new')" aria-label="Adicionar ao dia">${svg('plus', 20, 2.2)}</button></div>${chips}${html}${conn}
     ${prios.length && prios.length < 3 && today ? `<button class="ghost mini mt" onclick="A.daySheetOpen('new', 'prio')">★ Adicionar prioridade</button>` : ''}</div>`;
@@ -1505,13 +1516,116 @@ function toolIdeias() {
     ${done.length ? `<details class="mt"><summary style="font-size:14px">Já resolvidas (${done.length})</summary><div class="mt">${done.map(row).join('')}</div></details>` : ''}</div>`;
 }
 
+// ----- Hábitos (2.3): com data, meta por semana, sequência, lembretes com Feito e mapa do mês -----
+const WD1 = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const WDFULL = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const habGoalLabel = g => (g >= 7 ? 'Todo dia' : `${g}x por semana`);
+// Hábito antigo (7 quadradinhos sem data) vira hábito com data, meta "todo dia" e sem lembretes.
+function habNorm(hb) {
+  if (!hb.days || typeof hb.days !== 'object') hb.days = {};
+  if (!(hb.goal >= 1 && hb.goal <= 7)) hb.goal = 7;
+  if (!Array.isArray(hb.times)) hb.times = [];
+  delete hb.marks;
+  return hb;
+}
+const addDaysKey = (k, n) => { const d = keyToDate(k); d.setDate(d.getDate() + n); return todayKey(d); };
+const weekStartKey = k => { const d = keyToDate(k); d.setDate(d.getDate() - d.getDay()); return todayKey(d); }; // domingo
+function habWeekCount(hb, k = todayKey()) {
+  const s = weekStartKey(k); let n = 0;
+  for (let i = 0; i < 7; i++) if (hb.days[addDaysKey(s, i)]) n++;
+  return n;
+}
+// Sequência: dias seguidos (todo dia) ou semanas seguidas batendo a meta. Hoje ainda em aberto não quebra.
+function habStreak(hb) {
+  const today = todayKey();
+  if (hb.goal >= 7) {
+    let k = hb.days[today] ? today : addDaysKey(today, -1), n = 0;
+    while (hb.days[k] && n < 4000) { n++; k = addDaysKey(k, -1); }
+    return { n, unit: n === 1 ? 'dia' : 'dias' };
+  }
+  let w = weekStartKey(today), n = 0;
+  if (habWeekCount(hb, w) < hb.goal) w = addDaysKey(w, -7);
+  while (habWeekCount(hb, w) >= hb.goal && n < 520) { n++; w = addDaysKey(w, -7); }
+  return { n, unit: n === 1 ? 'semana' : 'semanas' };
+}
+function habXp(hb, k) {
+  if (!S.xp) return;
+  xpSet(`hab:${hb.id}:${k}`, hb.days[k] ? 3 : 0, k, true);
+  if (hb.goal >= 7) return;
+  const w = weekStartKey(k), hit = habWeekCount(hb, w) >= hb.goal;
+  if (xpSet(`habw:${hb.id}:${w}`, hit ? 10 : 0, k, true) > 0) {
+    celebrate(); if (xpOn()) popPoints(10);
+    setTimeout(() => toast(`Meta da semana batida: ${hb.t}!`, 3200), 80);
+  }
+}
+function habMonth(hb) {
+  const today = todayKey(), cur = today.slice(0, 7);
+  const ym = (S.habMonth && S.habMonth.id === hb.id && S.habMonth.ym) || cur;
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate();
+  const cells = Array.from({ length: first.getDay() }, () => '<i></i>');
+  let doneN = 0, pastN = 0;
+  for (let d = 1; d <= nd; d++) {
+    const k = `${ym}-${pad(d)}`, fut = k > today, on = !!hb.days[k];
+    if (on) doneN++; if (!fut) pastN++;
+    cells.push(`<button class="mday ${on ? 'on' : ''} ${k === today ? 'today' : ''}" ${fut ? 'disabled' : ''} onclick="A.habToggle('${hb.id}', '${k}')" aria-label="Dia ${d}: ${on ? 'feito' : 'não feito'}">${d}</button>`);
+  }
+  const mes = first.toLocaleDateString('pt-BR', { month: 'long' }), label = `${mes.charAt(0).toUpperCase()}${mes.slice(1)} de ${y}`;
+  return `<div class="hmonth"><div class="row" style="align-items:center"><button class="icon" onclick="A.habMonthNav('${hb.id}', -1)" aria-label="Mês anterior">‹</button><b class="grow" style="text-align:center">${label}</b><button class="icon" onclick="A.habMonthNav('${hb.id}', 1)" aria-label="Próximo mês" ${ym >= cur ? 'disabled' : ''}>›</button></div>
+    <div class="mgrid">${WD1.map(w => `<span>${w}</span>`).join('')}${cells.join('')}</div>
+    <p class="small" style="margin:6px 0 0">${doneN} ${doneN === 1 ? 'dia feito' : 'dias feitos'}${pastN ? ` de ${pastN} até agora (${Math.round(100 * doneN / pastN)}%)` : ''}.</p></div>`;
+}
+function habitEdit(hb) {
+  return `<div class="hedit">${input('habits', hb.id, 't', hb.t, 'Nome do hábito')}
+    <p class="small" style="margin:10px 0 4px">Meta</p><div class="pills">${[7, 6, 5, 4, 3, 2, 1].map(g => `<button class="pill ${hb.goal === g ? 'on' : ''}" onclick="A.habGoal('${hb.id}', ${g})">${g === 7 ? 'Todo dia' : `${g}x por semana`}</button>`).join('')}</div>
+    <p class="small" style="margin:10px 0 4px">Lembretes</p><div class="pills">${hb.times.map((t, i) => `<button class="pill on" onclick="A.habTimeDel('${hb.id}', ${i})" aria-label="Tirar o lembrete das ${t}">${t} ×</button>`).join('') || '<span class="small">Sem lembrete</span>'}</div>
+    <div class="row mt"><input type="time" id="ht-${hb.id}" class="grow" aria-label="Horário do lembrete"><button class="mini" onclick="A.habTimeAdd('${hb.id}')">+ horário</button></div>
+    <p class="small mt" style="margin-bottom:0">O aviso vem com o botão <b>Feito</b>. Não avisa no dia em que você já fez, nem depois de bater a meta da semana.</p>
+    <div class="row mt"><button class="ghost mini grow" onclick="A.habEdit(null)">Pronto</button><button class="danger mini" onclick="A.removeHabit('${hb.id}')">Apagar</button></div></div>`;
+}
+function habitCard(hb) {
+  const today = todayKey(), ws = weekStartKey(today), cnt = habWeekCount(hb), st = habStreak(hb), done = !!hb.days[today];
+  const prog = hb.goal >= 7 ? `${cnt} de 7 nesta semana` : `${cnt} de ${hb.goal} nesta semana${cnt >= hb.goal ? ' · meta batida' : ''}`;
+  const strip = Array.from({ length: 7 }, (_, i) => {
+    const k = addDaysKey(ws, i), fut = k > today, on = !!hb.days[k];
+    return `<button class="hday ${on ? 'on' : ''} ${k === today ? 'today' : ''}" ${fut ? 'disabled' : ''} onclick="A.habToggle('${hb.id}', '${k}')" aria-label="${WDFULL[i]}, dia ${Number(k.slice(8))}: ${on ? 'feito' : 'não feito'}"><small>${WD1[i]}</small>${Number(k.slice(8))}</button>`;
+  }).join('');
+  const monthOpen = S.habMonth && S.habMonth.id === hb.id;
+  return `<div class="card hcard" id="hab-${hb.id}"><div class="row" style="align-items:flex-start;gap:10px"><div class="grow"><p class="htitle">${h(hb.t || 'Sem nome')}</p>
+      <p class="small" style="margin:2px 0 0">${habGoalLabel(hb.goal)} · ${prog}${hb.times.length ? ` · aviso às ${hb.times.join(', ')}` : ''}</p></div>
+      ${st.n ? `<span class="tag" title="Sequência">${st.n} ${st.unit} ${st.unit.startsWith('semana') ? (st.n === 1 ? 'seguida' : 'seguidas') : (st.n === 1 ? 'seguido' : 'seguidos')}</span>` : ''}</div>
+    <div class="hweek">${strip}</div>
+    <div class="row mt" style="gap:8px"><button class="${done ? 'ghost' : ''} grow" onclick="A.habToggle('${hb.id}', '${today}')">${done ? 'Desfazer hoje' : 'Feito hoje'}</button><button class="ghost" onclick="A.habMonthToggle('${hb.id}')" aria-expanded="${monthOpen ? 'true' : 'false'}">Mês</button><button class="ghost" onclick="A.habEdit('${hb.id}')">Editar</button></div>
+    ${monthOpen ? habMonth(hb) : ''}${S.habEdit === hb.id ? habitEdit(hb) : ''}</div>`;
+}
 function toolHabitos() {
-  const list = S.habits.map(hb => `<div class="top3"><div class="row"><div class="grow">${input('habits', hb.id, 't', hb.t)}</div><button class="icon" onclick="A.removeHabit('${hb.id}')">×</button></div>
-    <div class="habit-boxes">${(hb.marks || []).map((m, i) => `<button class="hb ${m ? 'on' : ''}" onclick="A.toggleHabit('${hb.id}', ${i})">${i + 1}</button>`).join('')}</div>
-    <div class="row mt"><span class="small grow">${(hb.marks || []).filter(Boolean).length} de 7</span><button class="ghost mini" onclick="A.resetHabit('${hb.id}')">Zerar</button></div></div>`).join('');
-  return `<div class="card"><h2>Rastreador de hábitos sem data</h2><p class="hint">Quadradinho vazio não é falha: é informação para ajustar o hábito. O que falhou mais precisa ficar menor, mais fácil ou mudar de horário.</p>
-    <div class="row"><input class="grow" type="text" id="habitInput" placeholder="Novo hábito" onkeydown="if(event.key==='Enter')A.addHabit()"><button onclick="A.addHabit()">+</button></div>
-    <div class="mt">${list || '<p class="hint" style="margin:0">Nenhum hábito ainda.</p>'}</div></div>`;
+  return `<div class="card"><p class="hint" style="margin-top:0">Quadradinho vazio não é falha: é informação. O hábito que falha mais precisa ficar menor, mais fácil ou mudar de horário.</p>
+    <div class="row"><input class="grow" type="text" id="habitInput" placeholder="Novo hábito, ex.: Academia" onkeydown="if(event.key==='Enter')A.addHabit()"><button onclick="A.addHabit()" aria-label="Adicionar hábito">+</button></div></div>
+    ${S.habits.map(habitCard).join('')}`;
+}
+// Avisos dos próximos 7 dias. Pula o dia já feito e a semana com a meta batida. Refeito ao abrir o app.
+async function syncHabits() {
+  if (!N.isNative()) return;
+  try { await N.syncHabitNotifications(habitPlan()); } catch (e) { /* segue sem os avisos de hábito */ }
+}
+function habitPlan() {
+  const items = [], now = Date.now();
+  for (const hb of S.habits) {
+    if (!(hb.times || []).length) continue;
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + i);
+      const dk = todayKey(day);
+      if (hb.days[dk] || (hb.goal < 7 && habWeekCount(hb, dk) >= hb.goal)) continue;
+      const cnt = habWeekCount(hb, dk);
+      for (const t of hb.times) {
+        const at = atTime(day, t); if (at.getTime() <= now) continue;
+        const title = `Hábito: ${hb.t}`;
+        const body = hb.goal >= 7 ? 'Toque em Feito quando fizer.' : `Meta: ${hb.goal}x na semana, ${cnt} ${cnt === 1 ? 'feito' : 'feitos'}. Toque em Feito quando fizer.`;
+        items.push({ id: N.hashId(`hab:${hb.id}:${dk}:${t}`), title, body, at, extra: { kind: 'habito', id: hb.id, day: dk, title, body } });
+      }
+    }
+  }
+  return items;
 }
 
 function toolLembretes() {
@@ -1524,7 +1638,7 @@ function toolLembretes() {
 
 function scrSemana() { return ['Semana', 'Resumo, revisão de 15 minutos e as 3 da semana', weekSummaryCard(false) + toolSemana()]; }
 function scrIdeias() { return ['Ideias', 'Ideia boa fora de hora vem para cá', toolIdeias()]; }
-function scrHabitos() { return ['Hábitos', 'Rastreador sem data', toolHabitos()]; }
+function scrHabitos() { return ['Hábitos', 'Meta, lembrete e mapa do mês', toolHabitos()]; }
 function scrLembretes() { return ['Lembretes', 'Com verbo e com horário', toolLembretes()]; }
 function scrAgenda() { return ['Agenda', 'Seus compromissos e a agenda da casa', agendaCard()]; }
 
@@ -1591,7 +1705,7 @@ function buildContext() {
   lines.push(`Últimos 7 dias: ${ws.doneTasks.length} tarefas concluídas${ws.doneTasks.length ? ' (' + ws.doneTasks.slice(0, 10).map(t => t.title).join('; ') + ')' : ''}; 3 do dia: ${ws.top} de ${ws.topT} feitas; ${ws.feitos} itens no Feito hoje${ws.best ? '; dia que mais rendeu: ' + fmtDateKey(ws.best) : ''}.`);
   const sd = S.projects.filter(t => !t.done && t.someday).length;
   if (sd) lines.push(`Talvez um dia: ${sd} tarefas guardadas.`);
-  if (S.habits.length) lines.push('Hábitos: ' + S.habits.map(hb => `${hb.t} ${(hb.marks || []).filter(Boolean).length}/7`).join('; '));
+  if (S.habits.length) lines.push('Hábitos: ' + S.habits.map(hb => { const st = habStreak(hb); return `${hb.t} (${habGoalLabel(hb.goal).toLowerCase()}): ${habWeekCount(hb)} nesta semana${hb.days[todayKey()] ? ', feito hoje' : ''}${st.n ? `, sequência de ${st.n} ${st.unit}` : ''}`; }).join('; '));
   const now = new Date().toLocaleString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   return { name: S.settings.name, now, tone: S.settings.aiTone || 'direto', text: lines.join('\n') };
 }
@@ -2547,7 +2661,7 @@ function waterCard() {
 }
 
 // ----- Pontos, nível, sequência e recompensas -----
-const XP_RULES = [['Dia perfeito: prioridades e remédios do dia feitos', 20], ['Meta de água batida', 10], ['Tarefa concluída (+1 a cada 3 dias parada, até +10)', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
+const XP_RULES = [['Dia perfeito: prioridades e remédios do dia feitos', 20], ['Meta de água batida', 10], ['Meta da semana de um hábito', 10], ['Tarefa concluída (+1 a cada 3 dias parada, até +10)', 10], ['Bloco de foco', 10], ['Rotina concluída (mínima: 5)', 10], ['Prioridade do dia feita', 5], ['Passo de tarefa', 2], ['Hábito feito', 3], ['Remédio ou água marcado', 2], ['Item do Feito hoje ou do Meu dia', 2], ['Item do Corpo em dia', 1], ['Humor do dia', 1]];
 const DEFAULT_REWARDS = [['Um episódio de série', 40], ['Café ou doce especial', 60], ['Uma hora de jogo sem culpa', 100]];
 const xpLvlAt = n => 50 * n * (n - 1); // pontos para chegar ao nível n: 0, 100, 300, 600, 1000…
 const xpOn = () => S.settings.xpOn !== false;
@@ -3448,10 +3562,35 @@ const A = {
   async addIdea() { const v = document.getElementById('ideaInput').value.trim(); if (!v) return; const i = { id: uid(), t: v, when: '', at: Date.now(), done: false }; S.ideas.unshift(i); await db.put('ideas', i); render(); document.getElementById('ideaInput')?.focus(); },
   toggleIdea(id) { const i = objFor('ideas', id); i.done = !i.done; persist('ideas', i, true); render(); },
   async removeIdea(id) { S.ideas = S.ideas.filter(i => i.id !== id); await db.del('ideas', id); render(); },
-  async addHabit() { const v = document.getElementById('habitInput').value.trim(); if (!v) return; const hb = { id: uid(), t: v, marks: [false, false, false, false, false, false, false], order: S.habits.length }; S.habits.push(hb); await db.put('habits', hb); render(); },
-  toggleHabit(id, i) { const hb = objFor('habits', id); hb.marks[i] = !hb.marks[i]; persist('habits', hb, true); render(); },
-  resetHabit(id) { const hb = objFor('habits', id); hb.marks = [false, false, false, false, false, false, false]; persist('habits', hb, true); render(); },
-  async removeHabit(id) { if (!confirm('Remover este hábito?')) return; S.habits = S.habits.filter(x => x.id !== id); await db.del('habits', id); render(); },
+  async addHabit() {
+    const el = document.getElementById('habitInput'), v = el && el.value.trim(); if (!v) return;
+    const hb = habNorm({ id: uid(), t: v, goal: 7, days: {}, times: [], order: S.habits.length, createdAt: Date.now() });
+    S.habits.push(hb); await db.put('habits', hb); S.habEdit = hb.id; render();
+  },
+  async habToggle(id, k) {
+    const hb = objFor('habits', id); if (!hb || k > todayKey()) return;
+    if (hb.days[k]) delete hb.days[k]; else hb.days[k] = 1;
+    await db.put('habits', hb); habXp(hb, k); render(); await syncHabits();
+  },
+  habEdit(id) { S.habEdit = S.habEdit === id ? null : id; render(); },
+  habMonthToggle(id) { S.habMonth = S.habMonth && S.habMonth.id === id ? null : { id, ym: todayKey().slice(0, 7) }; render(); },
+  habMonthNav(id, d) {
+    const cur = S.habMonth && S.habMonth.id === id ? S.habMonth.ym : todayKey().slice(0, 7);
+    const [y, m] = cur.split('-').map(Number), ym = todayKey(new Date(y, m - 1 + d, 1)).slice(0, 7);
+    if (ym > todayKey().slice(0, 7)) return;
+    S.habMonth = { id, ym }; render();
+  },
+  async habGoal(id, g) { const hb = objFor('habits', id); hb.goal = g; await db.put('habits', hb); render(); await syncHabits(); },
+  async habTimeAdd(id) {
+    const el = document.getElementById('ht-' + id), v = el && el.value;
+    if (!v || !/^\d{2}:\d{2}$/.test(v)) return toast('Escolha um horário');
+    const hb = objFor('habits', id); hb.times = [...new Set([...(hb.times || []), v])].sort();
+    await db.put('habits', hb);
+    if (N.isNative() && !S.notif) S.notif = await N.notificationsAllowed(true);
+    render(); await syncHabits(); toast(`Aviso às ${v}`);
+  },
+  async habTimeDel(id, i) { const hb = objFor('habits', id); hb.times.splice(i, 1); await db.put('habits', hb); render(); await syncHabits(); },
+  async removeHabit(id) { if (!confirm('Apagar este hábito e o histórico dele?')) return; S.habits = S.habits.filter(x => x.id !== id); S.habEdit = null; await db.del('habits', id); render(); await syncHabits(); },
   async addReminder() {
     const title = document.getElementById('remTitle').value.trim(); if (!title) return;
     const at = document.getElementById('remAt').value; const note = document.getElementById('remNote').value.trim();
@@ -3693,7 +3832,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, dosePlan, doseNotifList: N.doseNotifList, setLoud: N.setLoud, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, habStreak, habWeekCount, habNorm, syncHabits, habitPlan, dosePlan, doseNotifList: N.doseNotifList, setLoud: N.setLoud, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
@@ -3747,7 +3886,7 @@ async function start() {
     N.pinnedVisible().then(v => { if (!v) updatePinned(true); });
     if (!S.viewingPast && S.page.id !== todayKey()) await loadPage(todayKey());
     if (S.calPerm === 'granted') await loadEvents();
-    if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); later('update', maybeCheckUpdate, 3000); }
+    if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); later('habsync', syncHabits, 900); later('update', maybeCheckUpdate, 3000); }
     if (S.focus && S.focus.phase === 'run') focusTick();
     if (S.rplay && S.rplay.phase === 'run') rpTick();
     if (S.tab === 'ajustes') refreshAlarmVol();

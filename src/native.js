@@ -186,6 +186,22 @@ export async function setAlarmVolume(nivel) {
   if (!isNative()) return null;
   try { return await Alerta.definirVolumeAlarme({ nivel: Math.round(nivel) }); } catch (e) { return null; }
 }
+// Avisos de hábito (uma vez cada, próximos 7 dias), com o botão Feito. Toca no silencioso junto com os lembretes.
+export async function syncHabitNotifications(items) {
+  if (!isNative()) return 0;
+  if (!(await notificationsAllowed(false))) return 0;
+  await cancelIds(lsGet('hab_notif_ids'));
+  const list = [];
+  for (const o of items) {
+    if (!(o.at instanceof Date) || o.at.getTime() <= Date.now()) continue;
+    const q = quietAt(o.at);
+    list.push({ id: o.id, title: o.title, body: o.body, schedule: { at: o.at, allowWhileIdle: true }, channelId: q ? 'noite' : remChannel(true), actionTypeId: 'HABITO', extra: o.extra });
+  }
+  for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
+  if (LOUD.rem) for (const n of list) if (!quietAt(n.schedule.at)) await toque({ id: n.id, rep: 'uma', at: n.schedule.at });
+  lsSet('hab_notif_ids', list.map(n => n.id));
+  return list.length;
+}
 // Para o alarme que está tocando (abriu o app, tocou em Tomei).
 export async function stopAlarm() {
   if (!isNative()) return;
@@ -236,6 +252,7 @@ export async function initDoseNotifications(onAction) {
       { id: 'FIXO_D', actions: [{ id: 'fixo_tomei', title: 'Tomei' }] },
       { id: 'FIXO_P', actions: [{ id: 'fixo_feito', title: 'Feito' }] },
       { id: 'FIXO_DP', actions: [{ id: 'fixo_tomei', title: 'Tomei' }, { id: 'fixo_feito', title: 'Passo feito' }] },
+      { id: 'HABITO', actions: [{ id: 'hab_feito', title: 'Feito' }, { id: 'hab_snooze', title: 'Lembrar em 15 min' }] },
     ] });
     await LocalNotifications.addListener('localNotificationActionPerformed', ev => {
       const extra = (ev.notification && ev.notification.extra) || {};

@@ -53,6 +53,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | **Tocar no silencioso** | Remédios, tarefas, lembretes, rotinas e o fim do foco podem tocar pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar. Controle do **volume de alarme** no próprio app, com prévia do som. Vários avisos na mesma hora tocam um som só, e a notificação **Parar o som** silencia na hora. |
 | **Horário de dormir** | Da higiene do sono até acordar, nada toca nem vibra: os avisos aparecem quietos. O lembrete que abre a higiene do sono continua tocando. |
 | **Meta de água** | Meta em mL pelo peso e pelo dia a dia, copos espalhados sozinhos entre acordar e a higiene do sono, e garrafa extra no dia de academia. Bateu, ganha pontos. |
+| **Hábitos** | Todo dia ou N vezes por semana, com sequência, lembretes com **Feito** no aviso e calendário do mês com os dias feitos. |
 | **Próximo fixo** | Uma notificação fixa, sem som, com o próximo remédio e o passo atual, que só sai quando você conclui. |
 | **Prioridades** | Matriz de Eisenhower: Faz hoje, Agenda, Rápido ou repassa e Solta. Prazo até amanhã sobe para urgente; o que fica 7 dias na Solta vai para "Talvez um dia". Sugere as 3 do dia: uma do Faz hoje, uma da Agenda e uma rápida. |
 | **Tarefa em 3 fases** | **O quê** (pronto quando), **Como** (passos com minutos, material, quando) e **Faz** (os passos ficam travados e o foco mostra só o atual). |

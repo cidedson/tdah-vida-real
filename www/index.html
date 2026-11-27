@@ -448,6 +448,23 @@ label.small select { display: block; margin-top: 4px; width: 100%; }
 .volbox { padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
 button.volbtn { font-size: 24px; font-weight: 700; width: 44px; height: 44px; min-height: 44px; padding: 0; flex: none; border-radius: 22px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
 input[type=range] { accent-color: var(--accent); height: 32px; min-width: 0; }
+
+/* Hábitos 2.3 */
+.htitle { margin: 0; font-weight: 800; font-size: 17px; }
+.hweek { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin-top: 12px; }
+button.hday { min-height: 48px; padding: 4px 0; border-radius: 12px; border: 1.5px solid var(--line2); background: var(--card); color: var(--ink); font-size: 15px; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+button.hday small { font-size: 11px; font-weight: 700; color: var(--muted); }
+button.hday.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+button.hday.on small { color: var(--on-accent); opacity: 0.85; }
+button.hday.today { box-shadow: 0 0 0 2px var(--accent) inset; }
+button.hday:disabled, button.mday:disabled { opacity: 0.35; }
+.hmonth { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.mgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: 6px; text-align: center; }
+.mgrid span { font-size: 11px; font-weight: 700; color: var(--muted); padding: 2px 0; }
+button.mday { min-height: 36px; padding: 0; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 13px; font-weight: 700; }
+button.mday.on { background: var(--accent); color: var(--on-accent); }
+button.mday.today { box-shadow: 0 0 0 2px var(--accent) inset; }
+.hedit { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>

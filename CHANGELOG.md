@@ -2,6 +2,16 @@
 
 Cada push na `main` gera um APK em [Releases](../../releases). O número final da versão é o número do build.
 
+## 2.3 — 27 de novembro de 2026
+
+Hábitos de verdade (ideias do HelloHabit).
+
+- **Hábitos com data e meta:** cada hábito é **Todo dia** ou **N vezes por semana** (ex.: academia 5x). A fileira da semana mostra os dias feitos; toque num dia que passou para marcar o que esqueceu. Cada hábito tem a sua sequência: dias seguidos ou semanas seguidas batendo a meta.
+- **Lembretes de hábito:** um ou mais horários por hábito, com **Feito** e **Lembrar em 15 min** no aviso. Não avisa no dia já feito nem depois de bater a meta da semana; respeita o horário de dormir e o tocar no silencioso.
+- **Mapa do mês:** em **Mês**, o calendário pinta os dias feitos, mostra o % do mês e deixa marcar dias passados. O resumo da semana lista cada hábito com o quanto foi feito.
+- **Pontos:** hábito feito vale 3; meta da semana batida, +10 e confete. No Meu dia aparece **Hábitos x/y**.
+- Os hábitos antigos (os 7 quadradinhos sem data) viram hábitos “todo dia”, começando do zero.
+
 ## 2.2 — 24 de novembro de 2026
 
 - **Vários avisos na mesma hora tocam um som só:** três remédios às 06:00 não empilham mais três alarmes. Enquanto o alarme toca, aparece a notificação **Parar o som**; abrir o app ou tocar em **Tomei** também para o som.
