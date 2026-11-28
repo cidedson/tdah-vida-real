@@ -816,6 +816,28 @@ async function scheduleWeekNotif() {
   await N.scheduleOnce('resumo-semana', 'Sua semana', 'O resumo da semana está pronto. Toque para ver.', at, false);
 }
 
+// Página com alguma marca do dia (para a lista de páginas anteriores).
+function pageHasContent(p) {
+  return !!(p.dump || p.good || p.bad || p.mood || p.focusN || (p.done && p.done.length) || (p.top3 || []).some(t => (t.t || '').trim())
+    || Object.values(p.doses || {}).some(Boolean) || (p.aguaExtra || []).length || Object.values(p.body || {}).some(Boolean));
+}
+function pastSummary(p, k) {
+  const parts = [], m = p.mood && moodOf(p.mood);
+  if (m) parts.push(m[1]);
+  const tops = (p.top3 || []).filter(t => (t.t || '').trim());
+  if (tops.length) parts.push(`${tops.filter(t => t.d).length}/${tops.length} prioridades`);
+  const nd = Object.values(p.doses || {}).filter(Boolean).length;
+  if (nd) parts.push(`${nd} ${nd === 1 ? 'remédio ou água' : 'remédios e água'}`);
+  const nh = S.habits.filter(hb => hb.days && hb.days[k]).length;
+  if (nh) parts.push(`${nh} ${nh === 1 ? 'hábito' : 'hábitos'}`);
+  const nr = (S.logs || []).filter(l => l.at && todayKey(new Date(l.at)) === k).length;
+  if (nr) parts.push(`${nr} ${nr === 1 ? 'rotina' : 'rotinas'}`);
+  if ((p.done || []).length) parts.push(`${p.done.length} no Feito hoje`);
+  if (p.focusN) parts.push(`${p.focusN} ${p.focusN === 1 ? 'bloco' : 'blocos'} de foco`);
+  if (p.bad) parts.push('dia ruim');
+  return parts.join(' · ');
+}
+
 function badDay() {
   const p = S.page, id = p.id;
   return `<div class="card"><h2>Dia ruim</h2><p class="hint">Hoje o objetivo é só atravessar o dia. Marcou estas cinco, o dia está cumprido.</p>
@@ -969,7 +991,7 @@ function maisDoDia() {
     if (k === 'feito') return `<p class="hint" style="margin-top:0">Vale tudo, até o que não estava na lista.</p>${(p.done || []).map((d, i) => `<div class="list-item"><div class="grow">${h(d)}</div><button class="icon" onclick="A.removeDone(${i})">×</button></div>`).join('')}<div class="row mt"><input class="grow" type="text" id="doneInput" placeholder="O que eu fiz" onkeydown="if(event.key==='Enter')A.addDone()"><button onclick="A.addDone()" aria-label="Adicionar">+</button></div>`;
     if (k === 'boa') return input('pages', id, 'good', p.good, 'Uma coisa boa de hoje');
     if (k === 'lemb') { const soon = sortedReminders().filter(r => !r.done && (!r.at || new Date(r.at).getTime() < Date.now() + 14 * DAY)).slice(0, 6); return (soon.map(r => check(false, h(r.title), `A.toggleReminder('${r.id}')`, dueLabel(r.at) + (r.note ? ' · ' + h(r.note) : ''))).join('') || '<p class="hint" style="margin:0">Nada nos próximos 14 dias.</p>') + `<button class="ghost mini mt" onclick="A.tab('lembretes')">Ver todos</button>`; }
-    if (k === 'antes') { if (S.pastList === null) { if (!S._pastLoading) { S._pastLoading = true; setTimeout(() => A.loadPast(), 0); } return '<p class="hint" style="margin:0">Carregando…</p>'; } const items = S.pastList.filter(x => x !== p.id); return items.length ? items.map(x => `<div class="list-item"><div class="grow">${cap(fmtDateKey(x))}</div><button class="mini ghost" onclick="A.openPage('${x}')">Abrir</button></div>`).join('') : '<p class="hint" style="margin:0">Nenhuma ainda. Dia em branco é só um dia em branco.</p>'; }
+    if (k === 'antes') { if (S.pastList === null) { if (!S._pastLoading) { S._pastLoading = true; setTimeout(() => A.loadPast(), 0); } return '<p class="hint" style="margin:0">Carregando…</p>'; } const items = S.pastList.filter(x => x !== p.id); return items.length ? items.map(x => `<div class="list-item"><div class="grow">${cap(fmtDateKey(x))}${(S.pastInfo || {})[x] ? `<div class="small">${h(S.pastInfo[x])}</div>` : ''}</div><button class="mini ghost" onclick="A.openPage('${x}')" aria-label="Abrir ${h(fmtDateKey(x))}">Abrir</button></div>`).join('') : '<p class="hint" style="margin:0">Nenhuma ainda. Dia em branco é só um dia em branco.</p>'; }
     return '';
   };
   return `<div class="card mais"><p class="eyebrow" style="margin:0 0 4px">Mais do dia</p>${rows.map(([k, l, st, ic]) => { const open = S.moreOpen === k; return `<div class="mitem ${open ? 'open' : ''}"><button class="mhead2" onclick="A.toggleMore('${k}')" aria-expanded="${open}"><span class="mi">${svg(ic, 18)}</span><span class="grow">${l}</span>${st ? `<span class="small">${st}</span>` : ''}${svg(open ? 'up' : 'down', 16)}</button>${open ? `<div class="mbody" ${k === 'dump' ? 'id="dumpCard"' : ''}>${body(k)}</div>` : ''}</div>`; }).join('')}</div>`;
@@ -3089,11 +3111,17 @@ const A = {
   addDone() { const el = document.getElementById('doneInput'); const v = el.value.trim(); if (!v) return; S.page.done.push(v); savePage(); render(); document.getElementById('doneInput')?.focus(); },
   removeDone(i) { S.page.done.splice(i, 1); savePage(); render(); },
   async loadPast() {
-    const pages = await db.all('pages');
-    S.pastList = pages.filter(p => p.dump || p.good || (p.done && p.done.length) || (p.top3 || []).some(t => t.t) || p.bad).map(p => p.id).sort().reverse().slice(0, 60);
-    render();
+    const pages = await db.all('pages'), today = todayKey(), byId = {};
+    for (const p of pages) byId[p.id] = p;
+    // Qualquer marca conta: remédio, água, humor, hábito, rotina, foco, prioridade, anotação.
+    const ids = new Set(pages.filter(pageHasContent).map(p => p.id));
+    for (const hb of S.habits) for (const k of Object.keys(hb.days || {})) ids.add(k);
+    for (const l of S.logs || []) if (l.at) ids.add(todayKey(new Date(l.at)));
+    S.pastList = [...ids].filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && k <= today).sort().reverse().slice(0, 60);
+    S.pastInfo = Object.fromEntries(S.pastList.map(k => [k, pastSummary(byId[k] || {}, k)]));
+    S._pastLoading = false; render();
   },
-  async openPage(k) { await loadPage(k); S.pastList = null; render(); window.scrollTo(0, 0); },
+  async openPage(k) { await loadPage(k); S.pastList = null; S._pastLoading = false; render(); window.scrollTo(0, 0); },
   async connectCalendar() {
     S.calPerm = await N.calendarPermission(true);
     if (S.calPerm === 'granted') { await loadEvents(); await syncDoses(); toast('Agenda conectada'); }
@@ -3832,7 +3860,7 @@ const A = {
   },
 };
 window.A = A;
-window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, habStreak, habWeekCount, habNorm, syncHabits, habitPlan, dosePlan, doseNotifList: N.doseNotifList, setLoud: N.setLoud, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
+window.__tdah = { setVer: v => { S.currentVer = v; S.update = cachedUpdate(); }, checkUpdate: maybeCheckUpdate, S, xpTotal, xpLevel, xpStreak, xpCoins, stepMins, discPath, calItems, ageBonus, perfectDay, waterGoal, waterToday, sleepWindow, waterPlan, trainingFor, habStreak, habWeekCount, habNorm, syncHabits, habitPlan, pageHasContent, pastSummary, dosePlan, doseNotifList: N.doseNotifList, setLoud: N.setLoud, carryPlan, dosesForDay, pinnedPlan, handleIncomingData, handleIncomingUri, taskPayload, taskShareText, shareLink }; // para testes
 
 // ---------------- Início ----------------
 async function start() {
@@ -3885,6 +3913,7 @@ async function start() {
     N.stopAlarm(); // abriu o app: o alarme já cumpriu o papel
     N.pinnedVisible().then(v => { if (!v) updatePinned(true); });
     if (!S.viewingPast && S.page.id !== todayKey()) await loadPage(todayKey());
+    S.pastList = null; S._pastLoading = false; // a lista de páginas anteriores se refaz
     if (S.calPerm === 'granted') await loadEvents();
     if (N.isNative()) { S.exact = await N.exactAlarmStatus(); later('dosesync', syncDoses, 500); later('habsync', syncHabits, 900); later('update', maybeCheckUpdate, 3000); }
     if (S.focus && S.focus.phase === 'run') focusTick();

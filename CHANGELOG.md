@@ -6,6 +6,7 @@ Cada push na `main` gera um APK em [Releases](../../releases). O número final d
 
 Hábitos de verdade (ideias do HelloHabit).
 
+- **Páginas anteriores corrigidas:** agora entra todo dia com alguma marca (remédio, água, humor, hábito, rotina, foco), não só os dias com prioridade ou anotação. Cada dia mostra um resumo curto, e a lista se atualiza ao voltar para o app ou trocar de dia.
 - **Hábitos com data e meta:** cada hábito é **Todo dia** ou **N vezes por semana** (ex.: academia 5x). A fileira da semana mostra os dias feitos; toque num dia que passou para marcar o que esqueceu. Cada hábito tem a sua sequência: dias seguidos ou semanas seguidas batendo a meta.
 - **Lembretes de hábito:** um ou mais horários por hábito, com **Feito** e **Lembrar em 15 min** no aviso. Não avisa no dia já feito nem depois de bater a meta da semana; respeita o horário de dormir e o tocar no silencioso.
 - **Mapa do mês:** em **Mês**, o calendário pinta os dias feitos, mostra o % do mês e deixa marcar dias passados. O resumo da semana lista cada hábito com o quanto foi feito.
