@@ -1,0 +1,15 @@
+{
+  "title": "Entregar relatório SPA",
+  "what": "PDF enviado ao gestor",
+  "imp": true,
+  "deadline": "2026-12-04",
+  "time": "14:00",
+  "alertMin": 60,
+  "cat": "Trabalho",
+  "need": "Acesso ao Databricks",
+  "steps": [
+    { "t": "Atualizar os dados no Databricks", "est": 20 },
+    { "t": "Revisar os gráficos do dashboard", "est": 15 },
+    { "t": "Exportar o PDF e mandar pro gestor", "est": 10 }
+  ]
+}
