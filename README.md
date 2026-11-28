@@ -21,7 +21,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/telas/hoje.png" width="230" alt="Tela Hoje com o card Agora, ações rápidas, humor e o Meu dia por Manhã, Tarde e Noite"><br><sub><b>Hoje</b>: o dia num olhar</sub></td>
+    <td align="center" width="33%"><img src="docs/telas/hoje.png" width="230" alt="Tela Hoje com o card Agora, ações rápidas, humor e o Meu dia com os atalhos de remédios, água, hábitos e semana"><br><sub><b>Hoje</b>: o dia num olhar</sub></td>
     <td align="center" width="33%"><img src="docs/telas/captura.png" width="230" alt="Captura mágica lendo dentista sexta 15h no centro"><br><sub><b>Captura mágica</b>: escreve do seu jeito</sub></td>
     <td align="center" width="33%"><img src="docs/telas/matriz.png" width="230" alt="Matriz de prioridades com filtro por categoria"><br><sub><b>Prioridades</b>: matriz com categorias</sub></td>
   </tr>
@@ -31,7 +31,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
     <td align="center"><img src="docs/telas/foco.png" width="230" alt="Bloco de foco escuro com timer de 25 minutos e o passo atual"><br><sub><b>Foco</b> de 25 min no passo atual</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/telas/semana.png" width="230" alt="Resumo da semana com tarefas concluídas, 3 do dia, remédios e humor"><br><sub><b>Resumo da semana</b></sub></td>
+    <td align="center"><img src="docs/telas/semana.png" width="230" alt="Resumo da semana com tarefas concluídas, 3 do dia, remédios, humor, foco e hábitos"><br><sub><b>Resumo da semana</b></sub></td>
     <td align="center"><img src="docs/telas/remedios.png" width="230" alt="Remédios e água com o próximo horário e os botões Tomei e Lembrar em 15 min"><br><sub><b>Remédios e água</b> com aviso</sub></td>
     <td align="center"><img src="docs/telas/hoje-escuro.png" width="230" alt="Tela Hoje no tema escuro"><br><sub><b>Tema escuro</b> ou automático</sub></td>
   </tr>
@@ -39,6 +39,11 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
     <td align="center"><img src="docs/telas/rotina-guiada.png" width="230" alt="Rotina guiada mostrando o passo 3 de 7 com um disco de tempo e os próximos passos"><br><sub><b>Rotina guiada</b>, um passo por vez</sub></td>
     <td align="center"><img src="docs/telas/foco-disco.png" width="230" alt="Bloco de foco com disco de tempo, ciclo de 4 blocos e foco acompanhado"><br><sub><b>Tempo visual</b> e ciclo de 4 blocos</sub></td>
     <td align="center"><img src="docs/telas/pontos.png" width="230" alt="Pontos e recompensas com nível 3, dias seguidos, moedas e recompensas"><br><sub><b>Pontos e recompensas</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/telas/habitos.png" width="230" alt="Hábitos: Academia 5x por semana com 2 semanas seguidas e Alongar todo dia com o calendário do mês"><br><sub><b>Hábitos</b> com meta e mapa do mês</sub></td>
+    <td align="center"><img src="docs/telas/agua.png" width="230" alt="Água de hoje com a meta pelo peso, plano automático de copos e o aviso do treino"><br><sub><b>Meta de água</b> automática</sub></td>
+    <td align="center"><img src="docs/telas/silencioso.png" width="230" alt="Tocar no silencioso com o volume de alarme e o horário de dormir"><br><sub><b>Volume de alarme</b> e horário de dormir</sub></td>
   </tr>
 </table>
 
