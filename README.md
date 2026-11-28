@@ -48,7 +48,7 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | --- | --- |
 | **Hoje** | Uma tela só com o que importa agora: o card **Agora** (o remédio da vez ou a prioridade, com o botão certo), ações rápidas (anotar, descarregar, foco de 25 min, dia ruim), o humor numa linha e o **Meu dia**, por Manhã, Tarde e Noite, com as 3 prioridades marcadas com ★. O resto do dia fica em linhas que abrem quando você toca. |
 | **Captura mágica** | Escreva ou fale do seu jeito: "dentista sexta 15h no centro", "pagar a luz todo dia 10". O app separa a data, a hora, o local, a repetição e a categoria, e avisa no horário. Funciona sem IA; com IA, ainda fatia em passos. |
-| **Humor em 1 toque** | Check-in na tela Hoje (animado, calmo, cansado, ansioso, pra baixo), com a frase do dia de recompensa, a energia e o humor da semana. |
+| **Humor em 1 toque** | Check-in na tela Hoje (animado, calmo, cansado, ansioso, pra baixo), com a frase do dia de recompensa, a energia e o humor da semana. Esqueceu um dia? Dá para marcar ou mudar o humor de ontem, de qualquer dia da semana ou de uma página antiga. |
 | **Remédios e água** | Aviso na hora com **Tomei** e **Lembrar em 15 min**, novo aviso se você não marcar e aviso para **levar o remédio** quando a agenda tem compromisso no horário. Marcou antes da hora, aquele não toca no dia. |
 | **Tocar no silencioso** | Remédios, tarefas, lembretes, rotinas e o fim do foco podem tocar pelo volume de alarme, mesmo com o celular no silencioso ou no vibrar. Controle do **volume de alarme** no próprio app, com prévia do som. Vários avisos na mesma hora tocam um som só, e a notificação **Parar o som** silencia na hora. |
 | **Horário de dormir** | Da higiene do sono até acordar, nada toca nem vibra: os avisos aparecem quietos. O lembrete que abre a higiene do sono continua tocando. |
@@ -61,15 +61,16 @@ Sem conta e sem servidor: os dados ficam no celular, e o backup vai para o Googl
 | **Bloco de foco** | Timer escuro com sino no fim, mesmo com a tela apagada, em anel ou em **disco de tempo visual**. Ciclo de pomodoro: pausa de 5 min e, a cada 4 blocos, pausa longa de 15. Liga o **Não perturbe** do Android durante o bloco e desliga sozinho no fim. **Foco acompanhado**: chame alguém pelo WhatsApp para focar junto, com aviso na metade. Conta os blocos de cada tarefa. A tela fica acesa e a barra de notificações mostra a contagem regressiva. Dá para estacionar uma ideia sem sair do foco. |
 | **Rotinas** | 7 rotinas prontas (manhã, trabalho, foco, fim do expediente, noite, semana e SOS), com lembrete, versão mínima e dica para quando travar. **Rotina guiada**: um passo por vez, com os minutos de cada passo, disco de tempo, voz, pausa, passo extra só nesta vez e a opção de avançar sozinho. |
 | **Calendário da semana** | Os próximos 7 dias com compromissos da agenda, tarefas com prazo e lembretes juntos, as atrasadas em destaque, criar tarefa num dia e mudar uma tarefa de dia. |
-| **Pontos e recompensas** | Cada coisa feita vale pontos (tarefa, passo, remédio, foco, rotina, humor). Os pontos sobem de nível e viram moedas para recompensas que você mesmo cria. Tarefa parada vale mais, dia perfeito vale +20, sequência de dias que não quebra por um dia vazio, comemoração ao concluir e nada de perder pontos. |
+| **Pontos e recompensas** | Cada coisa feita vale pontos (tarefa, passo, remédio, foco, rotina, hábito, humor). Meta de água e meta da semana de um hábito valem +10. Os pontos sobem de nível e viram moedas para recompensas que você mesmo cria. Tarefa parada vale mais, dia perfeito vale +20, sequência de dias que não quebra por um dia vazio, comemoração ao concluir e nada de perder pontos. |
 | **Buscar** | A lupa no topo procura em tudo: tarefas e passos, lembretes, ideias, remédios, os dias anteriores (descarrego, feito, prioridades), rotinas e o guia. Sem ligar para acento. |
 | **Guia** | 100 estratégias em 10 temas. Monte o seu kit, marque o status e anote o que funcionou. |
 | **Assistente de IA** | Opcional. Fala ou texto, com Gemini (Google, com plano grátis) ou Claude (Anthropic). Se você pular na configuração, o passo a passo da chave fica em Ajustes e num aviso no Hoje. Responde no tom que você escolher: direto, encorajador ou bem-humorado. Vê a agenda, o dia e o humor, cria e fatia tarefas, marca passos, organiza o descarrego, cria lembretes e horários, marca compromissos da casa, fecha o dia e faz o resumo da semana. |
 | **Agenda da casa** | Um calendário do Google compartilhado: o que uma pessoa marca aparece no celular da outra. |
 | **Compartilhar tarefa** | Manda uma tarefa pelo WhatsApp como link. Quem tem o app toca e a tarefa abre direto nele, com passos e prazo, pronta para entrar na matriz. |
 | **Aviso de versão nova** | Uma vez por dia o app confere se saiu versão nova. Se saiu, mostra as novidades na tela Hoje com o botão **Baixar e instalar**. |
-| **Resumo da semana** | Domingo às 19h: tarefas concluídas, as 3 do dia, remédios marcados, humor e o dia que mais rendeu. |
-| **Mais** | Revisão da semana, ideias, hábitos sem data, lembretes, tema claro, escuro ou automático e configuração guiada na primeira abertura. |
+| **Resumo da semana** | Domingo às 19h: tarefas concluídas, as 3 do dia, remédios marcados, humor, tempo de foco, cada hábito com o quanto foi feito e o dia que mais rendeu. |
+| **Páginas anteriores** | Todo dia com alguma marca (remédio, água, humor, hábito, rotina, foco ou prioridade), com um resumo curto de cada um. |
+| **Mais** | Revisão da semana, ideias, lembretes, tema claro, escuro ou automático, fonte grande do Android sem quebrar a tela e configuração guiada na primeira abertura. |
 
 ## Instalar no celular
 
