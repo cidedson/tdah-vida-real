@@ -465,6 +465,13 @@ button.mday { min-height: 36px; padding: 0; border-radius: 10px; background: var
 button.mday.on { background: var(--accent); color: var(--on-accent); }
 button.mday.today { box-shadow: 0 0 0 2px var(--accent) inset; }
 .hedit { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* Humor de outros dias */
+.moodweek > button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0 3px; border-radius: 12px; background: transparent; min-height: 0; color: inherit; }
+.moodweek > button.today { background: var(--bg); }
+.moodweek > button.pick { box-shadow: 0 0 0 2px var(--accent) inset; }
+.moodpick { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.moodpick .mfaces button.on { box-shadow: 0 0 0 2px var(--accent); border-radius: 50%; }
 </style>
 </head>
 <body>

@@ -22,7 +22,7 @@ const S = {
   drawer: false, prevTab: 'hoje', focus: null, parkOpen: false, medEdit: false,
   catFilter: null, weekPages: {}, whenOpen: {},
   currentVer: null, update: null, updateBusy: false,
-  moodOpen: false, moreOpen: null, perOpen: {}, daySheet: null,
+  moodOpen: false, moodPick: null, moreOpen: null, perOpen: {}, daySheet: null,
   alarmVol: null, rplay: null, xp: null, search: null, dndPending: false, calMove: null, rAdd: false, waterEdit: false, habEdit: null, habMonth: null,
 };
 
@@ -760,8 +760,24 @@ function quickActions() {
 }
 
 // ---------------- Humor em 1 toque ----------------
-function moodWeek(size = 22) {
-  return `<div class="moodweek">${lastDays().map(k => { const pg = pageFor(k); const m = pg && pg.mood; const d = keyToDate(k); return `<div class="${k === todayKey() ? 'today' : ''}" title="${h(moodOf(m) ? moodOf(m)[1] : 'sem registro')}">${m ? face(m, size) : '<i class="mdot"></i>'}<small>${'DSTQQSS'[d.getDay()]}</small></div>`; }).join('')}</div>`;
+// pick: os dias viram botões para marcar ou mudar o humor daquele dia.
+function moodWeek(size = 22, pick = false) {
+  return `<div class="moodweek">${lastDays().map(k => {
+    const pg = pageFor(k); const m = pg && pg.mood; const d = keyToDate(k);
+    const inner = `${m ? face(m, size) : '<i class="mdot"></i>'}<small>${'DSTQQSS'[d.getDay()]}</small>`;
+    const cls = `${k === todayKey() ? 'today' : ''} ${S.moodPick === k ? 'pick' : ''}`;
+    return pick
+      ? `<button class="${cls}" onclick="A.moodPickDay('${k}')" aria-label="${h(cap(fmtDateKey(k)))}: ${h(moodOf(m) ? moodOf(m)[1] : 'sem humor')}. Toque para ${m ? 'mudar' : 'marcar'}">${inner}</button>`
+      : `<div class="${cls}" title="${h(moodOf(m) ? moodOf(m)[1] : 'sem registro')}">${inner}</div>`;
+  }).join('')}</div>`;
+}
+// Marcar o humor de outro dia (esqueceu ontem, por exemplo).
+function moodPicker() {
+  const k = S.moodPick; if (!k) return '';
+  const cur = (pageFor(k) || {}).mood;
+  return `<div class="moodpick"><p class="small" style="margin:0 0 6px;font-weight:700">Como foi ${h(fmtDateKey(k))}?</p>
+    <div class="mfaces">${MOODS.map(([m, l]) => `<button class="${cur === m ? 'on' : ''}" onclick="A.setMoodFor('${k}', '${m}')" aria-label="${l}" title="${l}">${face(m, 30)}</button>`).join('')}</div>
+    <button class="ghost mini mt" onclick="A.moodPickDay(null)">Cancelar</button></div>`;
 }
 
 // ---------------- Resumo da semana ----------------
@@ -881,7 +897,10 @@ function agoraCard() {
 // Humor numa linha: as 5 carinhas; depois de marcar, uma linha que abre a frase do dia.
 function moodStrip() {
   const p = S.page;
-  if (!p.mood) return `<div class="card moodstrip"><span class="lbl">Como você está?</span><div class="mfaces">${MOODS.map(([k, l]) => `<button onclick="A.setMood('${k}')" aria-label="${l}" title="${l}">${face(k, 34)}</button>`).join('')}</div></div>`;
+  const yest = todayKey(new Date(Date.now() - DAY));
+  const forgot = !S.viewingPast && !(pageFor(yest) || {}).mood;
+  if (!p.mood) return `<div class="card moodstrip"><span class="lbl">${S.viewingPast ? 'Como foi o dia?' : 'Como você está?'}</span><div class="mfaces">${MOODS.map(([k, l]) => `<button onclick="A.setMood('${k}')" aria-label="${l}" title="${l}">${face(k, 34)}</button>`).join('')}</div>
+    ${forgot && S.moodPick !== yest ? `<button class="linkbtn2" style="margin-top:6px" onclick="A.moodPickDay('${yest}')">Esqueceu ontem? Marcar o humor de ontem</button>` : ''}${moodPicker()}</div>`;
   const m = moodOf(p.mood) || MOODS[1];
   const low = lastDays().filter(k => (pageFor(k) || {}).mood === 'pra-baixo').length;
   const energy = ['baixa', 'média', 'alta'].map(e => `<button class="pill ${p.energy === e ? 'on' : ''}" onclick="A.setEnergy('${e}')">${e}</button>`).join('');
@@ -889,8 +908,9 @@ function moodStrip() {
   return `<div class="card moodstrip ${open ? 'open' : ''}"><button class="mrow" onclick="A.moodToggle()" aria-expanded="${open}">${face(p.mood, 30)}<span class="grow"><b>${m[1]}</b>${p.energy ? `<span class="small"> · energia ${p.energy}</span>` : ''}<span class="small"> · frase do dia</span></span>${svg(open ? 'up' : 'down', 18)}</button>
     ${open ? `<div class="fortune ${S.moodJust ? 'pop' : ''}"><p class="eyebrow">Frase do dia</p><p>${h(phraseOfDay(p.mood, p.id))}</p></div>
     <div class="row mt" style="gap:10px;align-items:center"><span class="small" style="font-weight:700">Energia</span><div class="pills grow" style="flex-wrap:nowrap">${energy}</div></div>
-    <div class="row" style="margin-top:12px;align-items:flex-end"><div class="grow"><p class="eyebrow" style="margin:0">Sua semana</p>${moodWeek()}</div></div>
-    <button class="ghost mini mt" onclick="A.moodReset()">Mudar o humor</button>` : ''}
+    <div class="row" style="margin-top:12px;align-items:flex-end"><div class="grow"><p class="eyebrow" style="margin:0">Sua semana</p>${moodWeek(22, !S.viewingPast)}${!S.viewingPast ? '<p class="small" style="margin:4px 0 0">Toque num dia para marcar ou mudar o humor dele.</p>' : ''}</div></div>
+    ${moodPicker()}
+    <button class="ghost mini mt" onclick="A.moodReset()">Mudar o humor${S.viewingPast ? ' deste dia' : ' de hoje'}</button>` : ''}
     ${low >= 3 ? '<div class="alert mt">Vários dias pra baixo nesta semana. Vale contar para alguém de confiança ou para quem te acompanha. Se pesar demais: CVV 188, de graça, a qualquer hora.</div>' : ''}</div>`;
 }
 
@@ -1009,7 +1029,7 @@ function scrHoje() {
   b += agoraCard();
   if (!S.viewingPast) b += quickActions();
   if (!S.viewingPast && showWeekOnHoje()) b += weekSummaryCard(true);
-  if (!S.viewingPast && S.settings.moodOn !== false) b += moodStrip();
+  if (S.settings.moodOn !== false) b += moodStrip();
   b += p.bad ? badDay() : meuDiaCard();
   b += maisDoDia();
   b += tutorialNudge() || aiNudge();
@@ -3071,7 +3091,17 @@ const A = {
     await savePage(); S.daySheet = null; render(); updatePinned();
   },
   setEnergy(e) { S.page.energy = S.page.energy === e ? null : e; savePage(); render(); },
+  moodPickDay(k) { S.moodPick = S.moodPick === k ? null : k; render(); },
+  async setMoodFor(k, mood) {
+    if (!k || k > todayKey()) return;
+    let pg;
+    if (S.page && S.page.id === k) { pg = S.page; pg.mood = mood; pg.moodAt = Date.now(); await savePage(); }
+    else { pg = { ...newPage(k), ...((await db.get('pages', k)) || {}) }; pg.mood = mood; pg.moodAt = Date.now(); pg.updatedAt = Date.now(); await db.put('pages', pg); xpPage(pg, true); }
+    S.weekPages[k] = pg; S.moodPick = null; S.pastList = null; S._pastLoading = false;
+    render(); toast(`Humor de ${fmtDateKey(k)}: ${(moodOf(mood) || [0, mood])[1]}`);
+  },
   async setMood(k) {
+    if (S.viewingPast && S.page.id < todayKey()) return A.setMoodFor(S.page.id, k);
     if (S.page.id !== todayKey()) await loadPage(todayKey());
     S.page.mood = k; S.page.moodAt = Date.now(); await savePage(); S.weekPages[S.page.id] = S.page;
     S.moodJust = true; S.moodOpen = true; render(); setTimeout(() => { S.moodJust = false; }, 1200);
